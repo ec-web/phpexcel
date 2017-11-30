@@ -42,7 +42,7 @@ class Excel {
             }
         }
 
-        if ($encoding) {
+        if ($encoding && method_exists($reader, 'setInputEncoding')) {
             $reader->setInputEncoding($encoding);
         }
 
