@@ -1,0 +1,20 @@
+{
+    "name": "ecweb/phpexcel",
+    "description": "A lightweight PHP library for reading and writing spreadsheet files",
+    "homepage": "https://github.com/ec-web/phpexcel",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "ecweb",
+            "email": "php@ecqun.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.0"
+    },
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {"EC\\PHPExcel\\": "src/"}
+    }
+}
