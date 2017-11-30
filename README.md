@@ -37,7 +37,7 @@ $reader = EC\PHPExcel\Excel::load('files/01.csv', function(EC\PHPExcel\Reader\Cs
 // skip to row 50 
 $reader->seek(50);
 
-// Get current row data
+// Get the current row data
 $current = $reader->current();
 
 // Get row count
@@ -62,7 +62,7 @@ $reader = EC\PHPExcel\Excel::load('files/01.xls', function(EC\PHPExcel\Reader\Xl
 // skip to row 50 
 $reader->seek(50);
 
-// Get current row data
+// Get the current row data
 $current = $reader->current();
 
 // Get row count

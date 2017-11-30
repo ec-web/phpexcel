@@ -17,7 +17,7 @@ class Excel {
      * @param callback|null $callback
      * @param string|null $encoding
      *
-     * @throws \Exception
+     * @throws ReaderException
      * @return \EC\PHPExcel\Reader\BaseReader
      */
     public static function load($file, $callback = null, $encoding = null) {
