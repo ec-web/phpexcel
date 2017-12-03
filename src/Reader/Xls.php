@@ -1,6 +1,6 @@
 <?php
 /**
- * XLS Reader
+ * Xls Reader
  *
  * @author Janson
  * @create 2017-11-23
@@ -8,7 +8,7 @@
 namespace EC\PHPExcel\Reader;
 
 use EC\PHPExcel\Parser\Excel5;
-use EC\PHPExcel\Parser\OLERead;
+use EC\PHPExcel\Parser\Excel5\OLERead;
 
 class Xls extends BaseReader {
     /**
@@ -17,6 +17,13 @@ class Xls extends BaseReader {
      * @var Excel5
      */
     protected $parser;
+
+    /**
+     * File row and column count
+     *
+     * @var array
+     */
+    protected $count;
 
     /**
      * Loads Excel from file
@@ -37,12 +44,22 @@ class Xls extends BaseReader {
     /**
      * Count elements of the selected sheet
      *
-     * @return int
+     * @param bool $all
+     * @return int|array
      */
-    public function count() {
-        $sheets = $this->sheets();
+    public function count($all = false) {
+        if ($this->count === null) {
+            $sheet = $this->sheets()[$this->parser->getSheetIndex()] ?? [];
+            $row = $sheet['totalRows'] ?? 0;
+            $column = $sheet['totalColumns'] ?? 0;
 
-        return $sheets[$this->parser->getSheetIndex()]['totalRows'] ?? 0;
+            $this->count = [
+                $this->rowLimit > 0 && $row > $this->rowLimit ? $this->rowLimit : $row,
+                $this->columnLimit > 0 && $column > $this->columnLimit ? $this->columnLimit : $column
+            ];
+        }
+
+        return $all ? $this->count : $this->count[0];
     }
 
     /**
@@ -60,17 +77,20 @@ class Xls extends BaseReader {
     protected function makeGenerator() {
         $this->generator = call_user_func(function() {
             $line = 0;
-            $count = $this->count();
+            list($rowLimit, $columnLimit) = $this->count(true);
 
-            while (++$line <= $count) {
-                if ($this->rowLimit > 0 && $line > $this->rowLimit) {
-                    break;
-                }
-
-                $row = $this->parser->getCell($line - 1, $this->columnLimit);
+            while (++$line <= $rowLimit) {
+                $row = $this->parser->getRow($line - 1, $columnLimit);
 
                 if (!$this->readEmptyCells && (empty($row) || trim(implode('', $row)) === '')) {
                     continue;
+                }
+
+                // Fill the empty cell
+                for ($i = 0; $i < $columnLimit; $i++) {
+                    if (!isset($row[$i])) {
+                        $row[$i] = '';
+                    }
                 }
 
                 yield $row;
@@ -84,10 +104,11 @@ class Xls extends BaseReader {
      * @param int $index
      * @return $this
      */
-    public function setSheetIndex($index = 0) {
+    public function setSheetIndex($index) {
         if ($index != $this->parser->getSheetIndex()) {
             $this->parser->setSheetIndex($index);
 
+            $this->count = null;
             $this->rewind();
         }
 

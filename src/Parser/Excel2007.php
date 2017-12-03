@@ -1,9 +1,9 @@
 <?php
 /**
- * Excel2007 Parser
+ * Excel2017 Parser
  *
  * @author Janson
- * @create 2017-11-29
+ * @create 2017-12-02
  */
 namespace EC\PHPExcel\Parser;
 
@@ -11,99 +11,63 @@ use EC\PHPExcel\Exception\ParserException;
 use EC\PHPExcel\Exception\ReaderException;
 
 class Excel2007 {
-    /**
-     * Number of shared strings that can be reasonably cached, i.e., that aren't read from file but stored in memory.
-     * If the total number of shared strings is higher than this, caching is not used. If this value is null, shared
-     * strings are cached regardless of amount. With large shared string caches there are huge performance gains,
-     * however a lot of memory could be used which can be a problem, especially on shared hosting.
-     */
-    const SHARED_STRING_CACHE_LIMIT = 50000;
+    const CELL_TYPE_SHARED_STR = 's';
 
     /**
-     * SimpleXMLElement XML object for the workbook XML file
+     * ZipArchive reader
      *
-     * @var \SimpleXMLElement
+     * @var \ZipArchive
      */
-    protected $workbookXML;
+    protected $zip;
 
     /**
-     * SimpleXMLElement XML object for the style XML file
-     *
-     * @var \SimpleXMLElement
-     */
-    protected $stylesXML;
-
-    /**
-     * XMLReader for the shared strings XML file
+     * Worksheet reader
      *
      * @var \XMLReader
      */
-    protected $sharedStringsReader;
+    public $worksheet;
 
     /**
-     * Shared strings XML file
-     *
-     * @var string
-     */
-    protected $sharedStringsFile;
-
-    /**
-     * Shared strings XML file count
+     * The current sheet of the file
      *
      * @var int
      */
-    protected $sharedStringsCount;
+    private $sheetIndex = 0;
 
     /**
-     * Shared strings XML file cache
+     * Shared strings
      *
      * @var array
      */
-    protected $sharedStringCache = [];
+    private $sharedStrings;
 
     /**
-     * Style XML file styles
+     * Style xfs
      *
      * @var array
      */
-    protected $styles = [];
+    private $styleXfs;
 
     /**
-     * Style XML file formats
+     * Number formats
      *
      * @var array
      */
-    protected $formats = [];
+    private $formats;
 
     /**
-     * Temp dir
-     *
-     * @var string
-     */
-    protected $tempDir;
-
-    /**
-     * Temp files
+     * Parsed number formats
      *
      * @var array
      */
-    protected $tempFiles = [];
+    private $parsedFormats;
 
     /**
      * Worksheets
      *
      * @var array
      */
-    protected $sheets;
-
-    /**
-     * @var \DateTime
-     */
-    private static $baseDate;
-    private static $decimalSeparator = '.';
-    private static $thousandSeparator = ',';
-    private static $currencyCode = '';
-    private static $runtimeInfo = ['GMPSupported' => false];
+    private $sheets;
 
     /**
      * Default options for libxml loader
@@ -112,73 +76,19 @@ class Excel2007 {
      */
     private static $libXmlLoaderOptions;
 
+    private static $baseDate;
+    private static $decimalSeparator = '.';
+    private static $thousandSeparator = ',';
+    private static $currencyCode = '';
+    private static $runtimeInfo = ['GMPSupported' => false];
+
     /**
      * Use ZipArchive reader to extract the relevant data streams from the ZipArchive file
      *
      * @param string $file
      */
     public function loadZip($file) {
-        $zip = $this->openFile($file);
-
-        // Getting the general workbook information
-        if ($zip->locateName('xl/workbook.xml') !== false) {
-            $this->workbookXML = new \SimpleXMLElement($zip->getFromName('xl/workbook.xml'));
-        }
-
-        // Extracting the XMLs from the XLSX zip file
-        if ($zip->locateName('xl/sharedStrings.xml') !== false) {
-            $this->sharedStringsFile = $this->tempDir . 'xl' . DIRECTORY_SEPARATOR . 'sharedStrings.xml';
-
-            $zip->extractTo($this->tempDir, 'xl/sharedStrings.xml');
-            $this->tempFiles[] = $this->tempDir . 'xl' . DIRECTORY_SEPARATOR . 'sharedStrings.xml';
-
-            if (is_readable($this->sharedStringsFile)) {
-                $this->sharedStringsReader = new \XMLReader();
-                $this->sharedStringsReader->open($this->sharedStringsFile);
-                $this->prepareSharedStringCache();
-            }
-        }
-
-        $this->parseWorksheetInfo();
-
-        foreach ($this->sheets as $index => $name) {
-            if ($zip->locateName('xl/worksheets/sheet' . $index . '.xml') !== false) {
-                $zip->extractTo($this->tempDir, 'xl/worksheets/sheet' . $index . '.xml');
-
-                $this->tempFiles[] = $this->tempDir . 'xl' . DIRECTORY_SEPARATOR . 'worksheets'
-                    . DIRECTORY_SEPARATOR . 'sheet' . $index . '.xml';
-            }
-        }
-
-        $this->ChangeSheet(0);
-
-        // If worksheet is present and is OK, parse the styles already
-        if ($zip->locateName('xl/styles.xml') !== false) {
-            $this->stylesXML = new \SimpleXMLElement($zip->getFromName('xl/styles.xml'));
-            if ($this->stylesXML && $this->stylesXML->cellXfs && $this->stylesXML->cellXfs->xf) {
-                foreach ($this->stylesXML->cellXfs->xf as $xf) {
-                    // Format #0 is a special case
-                    // it is the "General" format that is applied regardless of applyNumberFormat
-                    if ($xf->attributes()->applyNumberFormat || (0 == (int)$xf->attributes()->numFmtId)) {
-                        // If format ID >= 164, it is a custom format and should be read from styleSheet\numFmts
-                        $this->styles[] = (int)$xf->attributes()->numFmtId;
-                    } else {
-                        // 0 for "General" format
-                        $this->styles[] = 0;
-                    }
-                }
-            }
-
-            if ($this->stylesXML->numFmts && $this->stylesXML->numFmts->numFmt) {
-                foreach ($this->stylesXML->numFmts->numFmt as $numFmt) {
-                    $this->formats[(int)$numFmt->attributes()->numFmtId] = (string)$numFmt->attributes()->formatcode;
-                }
-            }
-
-            unset($this->stylesXML);
-        }
-
-        $zip->close();
+        $this->zip = $this->openFile($file);
 
         // Setting base date
         if (!self::$baseDate) {
@@ -188,253 +98,243 @@ class Excel2007 {
             self::$baseDate->setTime(0, 0, 0);
         }
 
-        // Decimal and thousand separators
-        if (!self::$decimalSeparator && !self::$thousandSeparator && !self::$currencyCode) {
-            $locale = localeconv();
-
-            self::$decimalSeparator = $locale['decimal_point'];
-            self::$thousandSeparator = $locale['thousands_sep'];
-            self::$currencyCode = $locale['int_curr_symbol'];
-        }
-
         if (function_exists('gmp_gcd')) {
             self::$runtimeInfo['GMPSupported'] = true;
         }
     }
 
     /**
-     * Retrieves an array with information about sheets in the current file
+     * Set sheet index
      *
-     * @return array
-     */
-    public function parseWorksheetInfo() {
-        if ($this->sheets === null) {
-            $this->sheets = [];
-
-            foreach ($this->workbookXML->sheets->sheet as $sheet) {
-                $info = array(
-                    'worksheetName' => (string)$sheet["name"],
-                    'lastColumnLetter' => 'A',
-                    'lastColumnIndex' => 0,
-                    'totalRows' => 0,
-                    'totalColumns' => 0,
-                );
-
-                $fileWorksheet = $worksheets[(string) self::array_item($eleSheet->attributes("http://schemas.openxmlformats.org/officeDocument/2006/relationships"), "id")];
-
-                $xml = new XMLReader();
-                $res = $xml->xml($this->securityScanFile('zip://'.PHPExcel_Shared_File::realpath($pFilename).'#'."$dir/$fileWorksheet"), null, PHPExcel_Settings::getLibXmlLoaderOptions());
-                $xml->setParserProperty(2,true);
-
-                $currCells = 0;
-                while ($xml->read()) {
-                    if ($xml->name == 'row' && $xml->nodeType == XMLReader::ELEMENT) {
-                        $row = $xml->getAttribute('r');
-                        $tmpInfo['totalRows'] = $row;
-                        $tmpInfo['totalColumns'] = max($tmpInfo['totalColumns'],$currCells);
-                        $currCells = 0;
-                    } elseif ($xml->name == 'c' && $xml->nodeType == XMLReader::ELEMENT) {
-                        $currCells++;
-                    }
-                }
-                $tmpInfo['totalColumns'] = max($tmpInfo['totalColumns'],$currCells);
-                $xml->close();
-
-                $tmpInfo['lastColumnIndex'] = $tmpInfo['totalColumns'] - 1;
-                $tmpInfo['lastColumnLetter'] = Format::stringFromColumnIndex($tmpInfo['lastColumnIndex']);
-
-
-                $attributes = $sheet->attributes('r', true);
-
-                $sheetID = 0;
-                foreach ($attributes as $name => $value) {
-                    if ($name == 'id') {
-                        $sheetID = (int)str_replace('rId', '', (string)$value);
-                        break;
-                    }
-                }
-
-                if ($sheetID) {
-                    $this->sheets[$sheetID] = (string)$sheet['name'];
-                }
-            }
-
-            ksort($this->sheets);
-        }
-
-        return $this->sheets ? array_values($this->sheets) : [];
-    }
-
-    /**
-     * Open file for reading
+     * @param int $index
      *
-     * @param string $file
-     *
-     * @throws ParserException|ReaderException
-     * @return \ZipArchive
-     */
-    public function openFile($file) {
-        // Check if file exists
-        if (!file_exists($file) || !is_readable($file)) {
-            throw new ReaderException("Could not open file [$file] for reading! File does not exist.");
-        }
-
-        $zip = new \ZipArchive();
-        $status = $zip->open($file);
-
-        $xl = false;
-        if ($status === true) {
-            // check if it is an OOXML archive
-            $rels = simplexml_load_string(
-                $this->securityScan($zip->getFromName('rels/.rels')), 'SimpleXMLElement', self::getLibXmlLoaderOptions()
-            );
-
-            if ($rels !== false) {
-                foreach ($rels->Relationship as $rel) {
-                    switch ($rel["Type"]) {
-                        case "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument":
-                            if (basename($rel["Target"]) == 'workbook.xml') {
-                                $xl = true;
-                            }
-
-                            break;
-                    }
-                }
-            }
-        }
-
-        if ($status !== true || $xl === false) {
-            throw new ParserException(
-                "The file [$file] is not recognised as a zip archive: " . $zip->getStatusString()
-            );
-        }
-
-        return $zip;
-    }
-
-    /**
-     * Scan theXML for use of <!ENTITY to prevent XXE/XEE attacks
-     *
-     * @param  string $xml
-     *
-     * @throws ReaderException
-     * @return string
-     */
-    protected function securityScan($xml) {
-        $pattern = sprintf('/\\0?%s\\0?/', implode('\\0?', str_split('<!DOCTYPE')));
-
-        if (preg_match($pattern, $xml)) {
-            throw new ReaderException(
-                'Detected use of ENTITY in XML, spreadsheet file load() aborted to prevent XXE/XEE attacks'
-            );
-        }
-
-        return $xml;
-    }
-
-    /**
-     * Scan theXML for use of <!ENTITY to prevent XXE/XEE attacks
-     *
-     * @param  string $filestream
-     *
-     * @return string
-     */
-    protected function securityScanFile($filestream) {
-        return $this->securityScan(file_get_contents($filestream));
-    }
-
-    /**
-     * Set default options for libxml loader
-     *
-     * @param int $options Default options for libxml loader
-     */
-    public static function setLibXmlLoaderOptions($options = null) {
-        if (is_null($options) && defined(LIBXML_DTDLOAD)) {
-            $options = LIBXML_DTDLOAD | LIBXML_DTDATTR;
-        }
-
-        if (version_compare(PHP_VERSION, '5.2.11') >= 0) {
-            @libxml_disable_entity_loader($options == (LIBXML_DTDLOAD | LIBXML_DTDATTR));
-        }
-
-        self::$libXmlLoaderOptions = $options;
-    }
-
-    /**
-     * Get default options for libxml loader.
-     * Defaults to LIBXML_DTDLOAD | LIBXML_DTDATTR when not set explicitly.
-     *
-     * @return int Default options for libxml loader
-     */
-    public static function getLibXmlLoaderOptions() {
-        if (is_null(self::$libXmlLoaderOptions) && defined(LIBXML_DTDLOAD)) {
-            self::setLibXmlLoaderOptions(LIBXML_DTDLOAD | LIBXML_DTDATTR);
-        }
-
-        if (version_compare(PHP_VERSION, '5.2.11') >= 0) {
-            @libxml_disable_entity_loader(self::$libXmlLoaderOptions == (LIBXML_DTDLOAD | LIBXML_DTDATTR));
-        }
-
-        return self::$libXmlLoaderOptions;
-    }
-
-    /**
-     * Set temp dir
-     *
-     * @param string $dir
      * @return $this
      */
-    public function setTempDir($dir) {
-        $this->tempDir = $dir;
+    public function setSheetIndex($index) {
+        if ($index != $this->sheetIndex) {
+            $this->worksheet = null;
+            $this->sheetIndex = $index;
+        }
 
         return $this;
     }
 
     /**
-     * Creating shared string cache if the number of shared strings is acceptably low
-     * (or there is no limit on the amount)
+     * Get sheet index
      *
-     * @return bool
+     * @return int
      */
-    private function PrepareSharedStringCache() {
-        while ($this->sharedStringsReader->read()) {
-            if ($this->sharedStringsReader->name == 'sst') {
-                $this->sharedStringsCount = $this->sharedStringsReader->getAttribute('count');
-                break;
+    public function getSheetIndex() {
+        return $this->sheetIndex;
+    }
+
+    /**
+     * Return worksheet info (Name, Last Column Letter, Last Column Index, Total Rows, Total Columns)
+     *
+     * @return array
+     */
+    public function parseWorksheetInfo() {
+        if ($this->sheets === null) {
+            $workbookXML = simplexml_load_string(
+                $this->securityScan($this->zip->getFromName('xl/workbook.xml')),
+                'SimpleXMLElement', self::getLibXmlLoaderOptions()
+            );
+
+            $this->sheets = [];
+            if (isset($workbookXML->sheets) && $workbookXML->sheets) {
+                foreach ($workbookXML->sheets->sheet as $sheet) {
+                    $info = [
+                        'name' => (string)$sheet['name'], 'lastColumnLetter' => 'A', 'lastColumnIndex' => 0,
+                        'totalRows' => 0, 'totalColumns' => 0
+                    ];
+
+                    $xml = new \XMLReader();
+                    $xml->xml(
+                        $this->securityScan($this->zip->getFromName("xl/worksheets/sheet{$sheet['sheetId']}.xml")),
+                        null, self::getLibXmlLoaderOptions()
+                    );
+                    $xml->setParserProperty(\XMLReader::ATTRIBUTE, true);
+
+                    $columnCount = 0;
+                    while ($xml->read()) {
+                        if ($xml->name == 'row' && $xml->nodeType == \XMLReader::ELEMENT) {
+                            $info['totalRows'] = (int)$xml->getAttribute('r');
+                            $info['totalColumns'] = max($info['totalColumns'], $columnCount);
+                            $columnCount = 0;
+                        } elseif ($xml->name == 'c' && $xml->nodeType == \XMLReader::ELEMENT) {
+                            $columnCount++;
+                        }
+                    }
+                    $xml->close();
+
+                    $info['totalColumns'] = max($info['totalColumns'], $columnCount);
+                    $info['lastColumnIndex'] = $info['totalColumns'] - 1;
+                    $info['lastColumnLetter'] = Format::stringFromColumnIndex($info['lastColumnIndex']);
+
+                    $this->sheets[] = $info;
+                }
             }
         }
 
-        if (!$this->sharedStringsCount || (self::SHARED_STRING_CACHE_LIMIT < $this->sharedStringsCount
-                && self::SHARED_STRING_CACHE_LIMIT !== null)) {
+        return $this->sheets;
+    }
 
-            return false;
+    /**
+     * Parse sharedStrings and styles info
+     */
+    protected function parseSharedStringsAndStyles() {
+        if ($this->sharedStrings === null) {
+            $sharedStringsXML = simplexml_load_string(
+                $this->securityScan($this->zip->getFromName('xl/sharedStrings.xml')),
+                'SimpleXMLElement', self::getLibXmlLoaderOptions()
+            );
+
+            $this->sharedStrings = [];
+            if ($sharedStringsXML && isset($sharedStringsXML->si)) {
+                foreach ($sharedStringsXML->si as $val) {
+                    if (isset($val->t)) {
+                        $this->sharedStrings[] = (string)$val->t;
+                    } elseif (isset($val->r)) {
+                        $this->sharedStrings[] = self::parseRichText($val);
+                    }
+                }
+            }
         }
 
-        $cacheIndex = 0;
-        $cacheValue = '';
-        while ($this->sharedStringsReader->read()) {
-            switch ($this->sharedStringsReader->name) {
-                case 'si':
-                    if ($this->sharedStringsReader->nodeType == \XMLReader::END_ELEMENT) {
-                        $this->sharedStringCache[$cacheIndex] = $cacheValue;
-                        $cacheIndex++;
-                        $cacheValue = '';
-                    }
-                    break;
+        if ($this->styleXfs === null) {
+            $stylesXML = simplexml_load_string(
+                $this->securityScan($this->zip->getFromName('xl/styles.xml')),
+                'SimpleXMLElement', self::getLibXmlLoaderOptions()
+            );
 
-                case 't':
-                    if ($this->sharedStringsReader->nodeType == \XMLReader::END_ELEMENT) {
+            $this->styleXfs = $this->formats = [];
+            if ($stylesXML) {
+                if (isset($stylesXML->cellXfs->xf) && $stylesXML->cellXfs->xf) {
+                    foreach ($stylesXML->cellXfs->xf as $xf) {
+                        $numFmtId = isset($xf['numFmtId']) ? (int)$xf['numFmtId'] : 0;
+                        if (isset($xf['applyNumberFormat']) || $numFmtId == 0) {
+                            // If format ID >= 164, it is a custom format and should be read from styleSheet\numFmts
+                            $this->styleXfs[] = $numFmtId;
+                        } else {
+                            // 0 for "General" format
+                            $this->styleXfs[] = Format::FORMAT_GENERAL;
+                        }
+                    }
+                }
+
+                if (isset($stylesXML->numFmts->numFmt) && $stylesXML->numFmts->numFmt) {
+                    foreach ($stylesXML->numFmts->numFmt as $numFmt) {
+                        if (isset($numFmt['numFmtId'], $numFmt['formatCode'])) {
+                            $this->formats[(int)$numFmt['numFmtId']] = (string)$numFmt['formatCode'];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Return the text content from a rich text or inline string field
+     *
+     * @param object $is
+     * @return string
+     */
+    private static function parseRichText($is = null) {
+        $value = [];
+
+        if (isset($is->t)) {
+            $value[] = (string)$is->t;
+        } else {
+            foreach ($is->r as $run) {
+                $value[] = (string)$run->t;
+            }
+        }
+
+        return implode(' ', $value);
+    }
+
+    /**
+     * Get row data
+     *
+     * @param int $columnLimit
+     *
+     * @return array
+     */
+    public function getRow($columnLimit = 0) {
+        $this->parseWorksheetInfo();
+        $this->parseSharedStringsAndStyles();
+
+        $row = [];
+        $index = $this->getSheetIndex();
+        if ($this->worksheet === null) {
+            $this->worksheet = new \XMLReader();
+            $this->worksheet->xml(
+                $this->securityScan($this->zip->getFromName('xl/worksheets/sheet' . ($index + 1) . '.xml')),
+                null, self::getLibXmlLoaderOptions()
+            );
+        }
+
+        $styleId = 0;
+        $sharedString = false;
+        while ($this->worksheet->read()) {
+            $name = $this->worksheet->name;
+
+            // End of row
+            if ($name == 'row' && $this->worksheet->nodeType == \XMLReader::END_ELEMENT) {
+                break;
+            }
+
+            if ($columnLimit > 0 && $index >= $columnLimit - 1) {
+                continue;
+            }
+
+            switch ($name) {
+                // Cell
+                case 'c':
+                    if ($this->worksheet->nodeType == \XMLReader::END_ELEMENT) {
                         continue;
                     }
 
-                    $cacheValue .= $this->sharedStringsReader->readString();
+                    $styleId = (int)$this->worksheet->getAttribute('s');
+                    $letter = preg_replace('{[^[:alpha:]]}S', '', $this->worksheet->getAttribute('r'));
+                    $index = Format::columnIndexFromString($letter);
+
+                    // Determine cell type
+                    $sharedString = false;
+                    if ($this->worksheet->getAttribute('t') == self::CELL_TYPE_SHARED_STR) {
+                        $sharedString = true;
+                    }
+
+                    $row[$index] = '';
+                    break;
+
+                // Cell value
+                case 'v':
+                case 'is':
+                    if ($this->worksheet->nodeType == \XMLReader::END_ELEMENT) {
+                        continue;
+                    }
+
+                    $value = $this->worksheet->readString();
+                    if ($sharedString) {
+                        $value = $this->sharedStrings[$value];
+                    }
+
+                    // Format value if necessary
+                    if ($value !== '' && $styleId && isset($this->styleXfs[$styleId])) {
+                        $value = $this->formatValue($value, $styleId);
+                    } elseif ($value && is_numeric($value)) {
+                        $value = (float)$value;
+                    }
+
+                    $row[$index] = $value;
                     break;
             }
+
+
         }
 
-        $this->sharedStringsReader->close();
-
-        return true;
+        return $row;
     }
 
     /**
@@ -450,18 +350,18 @@ class Excel2007 {
             return $value;
         }
 
-        if (isset($this->styles[$index]) && $this->styles[$index] !== false) {
-            $index = $this->styles[$index];
+        if (isset($this->styleXfs[$index]) && $this->styleXfs[$index] !== false) {
+            $index = $this->styleXfs[$index];
         } else {
             return $value;
         }
 
         // A special case for the "General" format
         if ($index == 0) {
-            return $this->generalFormat($value);
+            return is_numeric($value) ? (float)$value : $value;
         }
 
-        $format = $this->parsedFormatCache[$index] ?? [];
+        $format = $this->parsedFormats[$index] ?? [];
 
         if (empty($format)) {
             $format = [
@@ -571,18 +471,18 @@ class Excel2007 {
                     if ($currencyCode) {
                         $currencyCode = $currencyCode[0];
                     }
-                    
+
                     if (!$currencyCode) {
                         $currencyCode = self::$currencyCode;
                     }
-                    
+
                     $format['currency'] = $currencyCode;
                 }
 
                 $format['code'] = trim($format['code']);
             }
 
-            $this->parsedFormatCache[$index] = $format;
+            $this->parsedFormats[$index] = $format;
         }
 
         // Applying format to value
@@ -676,5 +576,132 @@ class Excel2007 {
         }
 
         return $value;
+    }
+
+    /**
+     * Greatest common divisor calculation in case GMP extension is not enabled
+     *
+     * @param int $number1
+     * @param int $number2
+     *
+     * @return int
+     */
+    private static function GCD($number1, $number2) {
+        $number1 = abs($number1);
+        $number2 = abs($number2);
+
+        if ($number1 + $number2 == 0) {
+            return 0;
+        }
+
+        $number = 1;
+        while ($number1 > 0) {
+            $number = $number1;
+            $number1 = $number2 % $number1;
+            $number2 = $number;
+        }
+
+        return $number;
+    }
+
+    /**
+     * Open file for reading
+     *
+     * @param string $file
+     *
+     * @throws ParserException|ReaderException
+     * @return \ZipArchive
+     */
+    public function openFile($file) {
+        // Check if file exists
+        if (!file_exists($file) || !is_readable($file)) {
+            throw new ReaderException("Could not open file [$file] for reading! File does not exist.");
+        }
+
+        $zip = new \ZipArchive();
+
+        $xl = false;
+        if ($zip->open($file) === true) {
+            // check if it is an OOXML archive
+            $rels = simplexml_load_string(
+                $this->securityScan($zip->getFromName('_rels/.rels')), 'SimpleXMLElement', self::getLibXmlLoaderOptions()
+            );
+
+            if ($rels !== false) {
+                foreach ($rels->Relationship as $rel) {
+                    switch ($rel["Type"]) {
+                        case "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument":
+                            if ($rel["Target"] == 'xl/workbook.xml') {
+                                $xl = true;
+                            }
+
+                            break;
+                    }
+                }
+            }
+        }
+
+        if ($xl === false) {
+            throw new ParserException(
+                "The file [$file] is not recognised as a zip archive: " . $zip->getStatusString()
+            );
+        }
+
+        return $zip;
+    }
+
+    /**
+     * Scan theXML for use of <!ENTITY to prevent XXE/XEE attacks
+     *
+     * @param  string $xml
+     *
+     * @throws ReaderException
+     * @return string
+     */
+    protected function securityScan($xml) {
+        $pattern = sprintf('/\\0?%s\\0?/', implode('\\0?', str_split('<!DOCTYPE')));
+
+        if (preg_match($pattern, $xml)) {
+            throw new ReaderException(
+                'Detected use of ENTITY in XML, spreadsheet file load() aborted to prevent XXE/XEE attacks'
+            );
+        }
+
+        return $xml;
+    }
+
+    /**
+     * Set default options for libxml loader
+     *
+     * @param int $options Default options for libxml loader
+     */
+    public static function setLibXmlLoaderOptions($options = null) {
+        if (is_null($options) && defined(LIBXML_DTDLOAD)) {
+            $options = LIBXML_DTDLOAD | LIBXML_DTDATTR;
+        }
+
+        if (version_compare(PHP_VERSION, '5.2.11') >= 0) {
+            @libxml_disable_entity_loader($options == (LIBXML_DTDLOAD | LIBXML_DTDATTR));
+        }
+
+        self::$libXmlLoaderOptions = $options;
+    }
+
+    /**
+     * Get default options for libxml loader.
+     * Defaults to LIBXML_DTDLOAD | LIBXML_DTDATTR when not set explicitly.
+     *
+     * @return int Default options for libxml loader
+     */
+    public static function getLibXmlLoaderOptions() {
+        if (is_null(self::$libXmlLoaderOptions) && defined(LIBXML_DTDLOAD)) {
+            self::setLibXmlLoaderOptions(LIBXML_DTDLOAD | LIBXML_DTDATTR);
+        }
+
+        if (version_compare(PHP_VERSION, '5.2.11') >= 0) {
+            @libxml_disable_entity_loader(self::$libXmlLoaderOptions == (LIBXML_DTDLOAD | LIBXML_DTDATTR));
+        }
+
+        return self::$libXmlLoaderOptions;
     }
 }

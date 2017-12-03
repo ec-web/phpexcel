@@ -139,11 +139,11 @@ class Excel5 {
     private $codePage;
 
     /**
-     * Cell data
+     * Row data
      *
      * @var array
      */
-    private $cell;
+    private $row;
 
     /**
      * Shared formats
@@ -164,7 +164,7 @@ class Excel5 {
      *
      * @var int
      */
-    private $row = 0;
+    private $rowIndex = 0;
 
     /**
      * Max column number
@@ -387,23 +387,23 @@ class Excel5 {
     }
 
     /**
-     * Get cell data
+     * Get row data
      *
-     * @param int $row
+     * @param int $rowIndex
      * @param int $columnLimit
      *
      * @return array
      */
-    public function getCell($row, $columnLimit = 0) {
+    public function getRow($rowIndex, $columnLimit = 0) {
         $this->parseWorksheetInfo();
 
-        $this->row = $row;
+        $this->rowIndex = $rowIndex;
         $this->columnLimit = $columnLimit;
         $this->eor = false;
-        $this->cell = [];
+        $this->row = [];
 
         // Rewind or change sheet
-        if ($row === 0 || $this->pos < $this->sheets[$this->sheetIndex]['offset']) {
+        if ($rowIndex === 0 || $this->pos < $this->sheets[$this->sheetIndex]['offset']) {
             $this->pos = $this->sheets[$this->sheetIndex]['offset'];
         }
 
@@ -467,7 +467,7 @@ class Excel5 {
             }
         }
 
-        return $this->cell;
+        return $this->row;
     }
 
     /**
@@ -486,9 +486,9 @@ class Excel5 {
             return false;
         }
 
-        if (!$this->columnLimit || $column < $this->columnLimit) {
+        if ($this->columnLimit > 0 || $column < $this->columnLimit) {
             $xfRecord = $this->xfRecords[$xfIndex];
-            $this->cell[$column] = self::toFormattedString($value, $xfRecord['format']);
+            $this->row[$column] = self::toFormattedString($value, $xfRecord['format']);
         }
 
         return true;

@@ -1,13 +1,12 @@
 <?php
 /**
- * XLSX Reader
+ * Xlsx Reader
  *
  * @author Janson
  * @create 2017-11-23
  */
 namespace EC\PHPExcel\Reader;
 
-use EC\PHPExcel\Exception\ReaderException;
 use EC\PHPExcel\Parser\Excel2007;
 
 class Xlsx extends BaseReader {
@@ -37,10 +36,22 @@ class Xlsx extends BaseReader {
     /**
      * Count elements of an object
      *
-     * @return int
+     * @param bool $all
+     * @return int|array
      */
-    public function count() {
+    public function count($all = false) {
+        if ($this->count === null) {
+            $sheet = $this->sheets()[$this->parser->getSheetIndex()] ?? [];
+            $row = $sheet['totalRows'] ?? 0;
+            $column = $sheet['totalColumns'] ?? 0;
 
+            $this->count = [
+                $this->rowLimit > 0 && $row > $this->rowLimit ? $this->rowLimit : $row,
+                $this->columnLimit > 0 && $column > $this->columnLimit ? $this->columnLimit : $column
+            ];
+        }
+
+        return $all ? $this->count : $this->count[0];
     }
 
     /**
@@ -49,14 +60,34 @@ class Xlsx extends BaseReader {
      * @return array
      */
     public function sheets() {
-
+        return $this->parser->parseWorksheetInfo();
     }
 
     /**
      * Make the generator
      */
     protected function makeGenerator() {
+        $this->generator = call_user_func(function() {
+            list($rowLimit, $columnLimit) = $this->count(true);
+            $this->parser->worksheet = null;
 
+            while ($rowLimit--) {
+                $row = $this->parser->getRow($columnLimit);
+
+                if (!$this->readEmptyCells && (empty($row) || trim(implode('', $row)) === '')) {
+                    continue;
+                }
+
+                // Fill the empty cell
+                for ($i = 0; $i < $columnLimit; $i++) {
+                    if (!isset($row[$i])) {
+                        $row[$i] = '';
+                    }
+                }
+
+                yield $row;
+            }
+        });
     }
 
     /**
@@ -66,7 +97,14 @@ class Xlsx extends BaseReader {
      * @return $this
      */
     public function setSheetIndex($index = 0) {
+        if ($index != $this->parser->getSheetIndex()) {
+            $this->parser->setSheetIndex($index);
 
+            $this->count = null;
+            $this->rewind();
+        }
+
+        return $this;
     }
 
     /**

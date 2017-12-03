@@ -1,6 +1,6 @@
 <?php
 /**
- * CSV Reader
+ * Csv Reader
  *
  * @author Janson
  * @create 2017-11-23
