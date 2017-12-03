@@ -1,6 +1,6 @@
 {
     "name": "ecweb/phpexcel",
-    "description": "A lightweight PHP library for reading and writing spreadsheet files",
+    "description": "A lightweight PHP library for reading spreadsheet files",
     "homepage": "https://github.com/ec-web/phpexcel",
     "type": "library",
     "license": "MIT",

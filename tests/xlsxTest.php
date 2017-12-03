@@ -14,14 +14,14 @@ $reader = EC\PHPExcel\Excel::load('files/01.xlsx', function(EC\PHPExcel\Reader\X
     $reader->setRowLimit(10);
     $reader->setColumnLimit(10);
 
-    $reader->setSheetIndex(0);
+    //$reader->setSheetIndex(0);
 });
 
 foreach ($reader as $row) {
     var_dump($row);
 }
 
-$reader->seek(50);
+//$reader->seek(50);
 
 $count = $reader->count();
 $reader->seek(2);

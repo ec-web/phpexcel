@@ -10,11 +10,11 @@ require __DIR__ . '/../autoload.php';
 $start = microtime(true);
 $memory = memory_get_usage();
 
-$reader = EC\PHPExcel\Excel::load('files/05.xls', function(EC\PHPExcel\Reader\Xls $reader) {
-    $reader->setRowLimit(5);
+$reader = EC\PHPExcel\Excel::load('files/01.xls', function(EC\PHPExcel\Reader\Xls $reader) {
+    //$reader->setRowLimit(5);
     $reader->setColumnLimit(10);
 
-    $reader->setSheetIndex(1);
+    //$reader->setSheetIndex(1);
 });
 
 foreach ($reader as $row) {

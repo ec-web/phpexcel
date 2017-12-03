@@ -17,7 +17,7 @@ A lightweight PHP library for reading spreadsheet files
 
 ```
 // Simple setting 
-$reader = EC\PHPExcel\Excel::load('files/03.csv', 'GBK');
+$reader = EC\PHPExcel\Excel::load('files/02.csv', 'GBK');
 
 // Flexible setting
 $reader = EC\PHPExcel\Excel::load('files/01.csv', function(EC\PHPExcel\Reader\Csv $reader) {
@@ -28,7 +28,7 @@ $reader = EC\PHPExcel\Excel::load('files/01.csv', function(EC\PHPExcel\Reader\Cs
     $reader->setColumnLimit(10);
 
     // Set encoding
-    $reader->setInputEncoding('GBK');
+    //$reader->setInputEncoding('GBK');
     
     // Set delimiter
     $reader->setDelimiter("\t");

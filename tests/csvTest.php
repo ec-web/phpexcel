@@ -10,7 +10,7 @@ require __DIR__ . '/../autoload.php';
 $start = microtime(true);
 $memory = memory_get_usage();
 
-$reader = EC\PHPExcel\Excel::load('files/03.csv', function(EC\PHPExcel\Reader\Csv $reader) {
+$reader = EC\PHPExcel\Excel::load('files/02.csv', function(EC\PHPExcel\Reader\Csv $reader) {
     $reader->setRowLimit(5);
     $reader->setColumnLimit(10);
 
