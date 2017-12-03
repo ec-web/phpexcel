@@ -98,7 +98,7 @@ class Csv extends BaseReader {
                 $row = array_slice($row, 0, $this->columnLimit);
             }
 
-            if (!$this->readEmptyCells && (empty($row) || trim(implode('', $row)) === '')) {
+            if ($this->ignoreEmpty && (empty($row) || trim(implode('', $row)) === '')) {
                 continue;
             }
 

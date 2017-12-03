@@ -39,13 +39,11 @@ abstract class BaseReader implements ReaderInterface {
     protected $columnLimit;
 
     /**
-     * Read empty cells?
-     * Identifies whether the Reader should read data values for cells all cells, or should ignore cells containing
-     * null value or empty string
+     * Ignore empty row
      *
-     * @var boolean
+     * @var bool
      */
-    protected $readEmptyCells = true;
+    protected $ignoreEmpty = false;
 
     /**
      * Return the current element
@@ -96,16 +94,14 @@ abstract class BaseReader implements ReaderInterface {
     }
 
     /**
-     * Set read empty cells
-     *     Set to true (the default) to advise the Reader read data values for all cells, irrespective of value.
-     *     Set to false to advise the Reader to ignore cells containing a null value or an empty string.
+     * Ignore empty row
      *
-     * @param bool $readEmpty
+     * @param bool $ignoreEmpty
      *
      * @return $this
      */
-    public function setReadEmptyCells($readEmpty = true) {
-        $this->readEmptyCells = $readEmpty;
+    public function ignoreEmptyRow($ignoreEmpty = false) {
+        $this->ignoreEmpty = $ignoreEmpty;
 
         return $this;
     }

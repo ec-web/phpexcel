@@ -23,16 +23,19 @@ $reader = EC\PHPExcel\Excel::load('files/02.csv', 'GBK');
 $reader = EC\PHPExcel\Excel::load('files/01.csv', function(EC\PHPExcel\Reader\Csv $reader) {
     // Set row limit
     $reader->setRowLimit(10);
-    
+
     // Set column limit
     $reader->setColumnLimit(10);
 
+    // Ignore emoty row
+    $reader->ignoreEmptyRow(true);
+
     // Set encoding
     //$reader->setInputEncoding('GBK');
-    
+
     // Set delimiter
     $reader->setDelimiter("\t");
-});
+}, 'GBK');
 
 // skip to row 50 
 $reader->seek(50);
@@ -50,9 +53,12 @@ $count = $reader->count();
 $reader = EC\PHPExcel\Excel::load('files/01.xls', function(EC\PHPExcel\Reader\Xls $reader) {
     // Set row limit
     $reader->setRowLimit(10);
-    
+
     // Set column limit
     $reader->setColumnLimit(10);
+
+    // Ignore emoty row
+    $reader->ignoreEmptyRow(true);
 
     // Select sheet index
     $reader->setSheetIndex(1);
@@ -76,9 +82,12 @@ $sheets = $reader->sheets();
 $reader = EC\PHPExcel\Excel::load('files/01.xlsx', function(EC\PHPExcel\Reader\Xlsx $reader) {
     // Set row limit
     $reader->setRowLimit(10);
-    
+
     // Set column limit
     $reader->setColumnLimit(10);
+
+    // Ignore emoty row
+    $reader->ignoreEmptyRow(true);
 
     // Select sheet index
     $reader->setSheetIndex(0);

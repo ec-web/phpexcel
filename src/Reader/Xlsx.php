@@ -91,7 +91,7 @@ class Xlsx extends BaseReader {
         while ($line < $rowLimit) {
             $row = $this->parser->getRow($line++, $columnLimit);
 
-            if (!$this->readEmptyCells && (empty($row) || trim(implode('', $row)) === '')) {
+            if ($this->ignoreEmpty && (empty($row) || trim(implode('', $row)) === '')) {
                 continue;
             }
 

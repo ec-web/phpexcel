@@ -14,6 +14,8 @@ $reader = EC\PHPExcel\Excel::load('files/02.csv', function(EC\PHPExcel\Reader\Cs
     $reader->setRowLimit(5);
     $reader->setColumnLimit(10);
 
+    $reader->ignoreEmptyRow(true);
+
     //$reader->setInputEncoding('UTF-8');
     $reader->setDelimiter("\t");
 });
