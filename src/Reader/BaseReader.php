@@ -8,7 +8,6 @@
 namespace EC\PHPExcel\Reader;
 
 use EC\PHPExcel\Contract\ReaderInterface;
-use EC\PHPExcel\Exception\ReaderException;
 
 abstract class BaseReader implements ReaderInterface {
     /**
@@ -42,7 +41,7 @@ abstract class BaseReader implements ReaderInterface {
     /**
      * Read empty cells?
      * Identifies whether the Reader should read data values for cells all cells, or should ignore cells containing
-     *         null value or empty string
+     * null value or empty string
      *
      * @var boolean
      */
@@ -86,7 +85,7 @@ abstract class BaseReader implements ReaderInterface {
      * Rewind the Iterator to the first element
      */
     public function rewind() {
-        $this->makeGenerator();
+        $this->generator = $this->makeGenerator();
     }
 
     /**
@@ -98,8 +97,8 @@ abstract class BaseReader implements ReaderInterface {
 
     /**
      * Set read empty cells
-     *        Set to true (the default) to advise the Reader read data values for all cells, irrespective of value.
-     *        Set to false to advise the Reader to ignore cells containing a null value or an empty string.
+     *     Set to true (the default) to advise the Reader read data values for all cells, irrespective of value.
+     *     Set to false to advise the Reader to ignore cells containing a null value or an empty string.
      *
      * @param bool $readEmpty
      *

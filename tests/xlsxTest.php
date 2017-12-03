@@ -14,18 +14,22 @@ $reader = EC\PHPExcel\Excel::load('files/01.xlsx', function(EC\PHPExcel\Reader\X
     $reader->setRowLimit(10);
     $reader->setColumnLimit(10);
 
-    $reader->setSheetIndex(1);
+    $reader->setSheetIndex(0);
 });
 
+foreach ($reader as $row) {
+    var_dump($row);
+}
 
 $reader->seek(50);
 
+$count = $reader->count();
 $reader->seek(2);
 $current = $reader->current();
 
-$count = $reader->count();
-
+$sheets = $reader->sheets();
 
 $time = microtime(true) - $start;
 $use = memory_get_usage() - $memory;
-var_dump($current, $time, $use/1024/1024);
+
+var_dump($current, $count, $sheets, $time, $use/1024/1024);

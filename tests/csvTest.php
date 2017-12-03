@@ -11,22 +11,23 @@ $start = microtime(true);
 $memory = memory_get_usage();
 
 $reader = EC\PHPExcel\Excel::load('files/03.csv', function(EC\PHPExcel\Reader\Csv $reader) {
-    $reader->setRowLimit(10);
+    $reader->setRowLimit(5);
     $reader->setColumnLimit(10);
 
-    $reader->setInputEncoding('UTF-8');
+    //$reader->setInputEncoding('UTF-8');
     $reader->setDelimiter("\t");
 });
 
-
-$reader->seek(50);
+foreach ($reader as $row) {
+    var_dump($row);
+}
 
 $reader->seek(2);
-$current = $reader->current();
 
 $count = $reader->count();
-
+//$reader->seek(1);
+$current = $reader->current();
 
 $time = microtime(true) - $start;
 $use = memory_get_usage() - $memory;
-var_dump($current, $time, $use/1024/1024);
+var_dump($current, $count, $time, $use/1024/1024);

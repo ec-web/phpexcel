@@ -25,13 +25,6 @@ class Csv extends BaseReader {
     protected $start = 0;
 
     /**
-     * Whether is calculating the number of rows
-     *
-     * @var bool
-     */
-    protected $calculate = false;
-
-    /**
      * Input encoding
      *
      * @var string
@@ -65,7 +58,7 @@ class Csv extends BaseReader {
 
         $this->autoDetection();
 
-        $this->makeGenerator();
+        $this->generator = $this->makeGenerator();
 
         return $this;
     }
@@ -77,13 +70,7 @@ class Csv extends BaseReader {
      */
     public function count() {
         if ($this->count === null) {
-            if (!$this->valid() || $this->key()) {
-                $this->rewind();
-            }
-
-            $this->calculate = true;
-            $this->count = iterator_count($this->generator);
-            $this->calculate = false;
+            $this->count = iterator_count($this->makeGenerator(true));
         }
 
         return $this->count;
@@ -91,50 +78,51 @@ class Csv extends BaseReader {
 
     /**
      * Make the generator
+     *
+     * @param bool $calculate
+     * @return \Generator
      */
-    protected function makeGenerator() {
+    protected function makeGenerator($calculate = false) {
         $lineEnding = ini_get('auto_detect_line_endings');
         ini_set('auto_detect_line_endings', true);
 
-        $this->generator = call_user_func(function() {
-            fseek($this->fileHandle, $this->start);
+        fseek($this->fileHandle, $this->start);
 
-            $rowLimit = 0;
-            while (($row = fgetcsv($this->fileHandle, 0, $this->delimiter, $this->enclosure)) !== false) {
-                if ($this->rowLimit > 0 && ++$rowLimit > $this->rowLimit) {
-                    break;
-                }
+        $rowLimit = 0;
+        while (($row = fgetcsv($this->fileHandle, 0, $this->delimiter, $this->enclosure)) !== false) {
+            if ($this->rowLimit > 0 && ++$rowLimit > $this->rowLimit) {
+                break;
+            }
 
-                if ($this->columnLimit > 0) {
-                    $row = array_slice($row, 0, $this->columnLimit);
-                }
+            if ($this->columnLimit > 0) {
+                $row = array_slice($row, 0, $this->columnLimit);
+            }
 
-                if (!$this->readEmptyCells && (empty($row) || trim(implode('', $row)) === '')) {
-                    continue;
-                }
+            if (!$this->readEmptyCells && (empty($row) || trim(implode('', $row)) === '')) {
+                continue;
+            }
 
-                if ($this->calculate) {
-                    yield;
-                } else {
-                    foreach ($row as &$value) {
-                        if ($value != '') {
-                            if (is_numeric($value)) {
-                                $value = (float)$value;
-                            }
+            if ($calculate) {
+                yield;
+            } else {
+                foreach ($row as &$value) {
+                    if ($value != '') {
+                        if (is_numeric($value)) {
+                            $value = (float)$value;
+                        }
 
-                            // Convert encoding if necessary
-                            if ($this->inputEncoding !== 'UTF-8') {
-                                $value = mb_convert_encoding($value, 'UTF-8', $this->inputEncoding);
-                            }
+                        // Convert encoding if necessary
+                        if ($this->inputEncoding !== 'UTF-8') {
+                            $value = mb_convert_encoding($value, 'UTF-8', $this->inputEncoding);
                         }
                     }
-
-                    unset($value);
-
-                    yield $row;
                 }
+
+                unset($value);
+
+                yield $row;
             }
-        });
+        }
 
         ini_set('auto_detect_line_endings', $lineEnding);
     }

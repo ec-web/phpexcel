@@ -18,6 +18,13 @@ class Xlsx extends BaseReader {
     protected $parser;
 
     /**
+     * File row、column count
+     *
+     * @var array|int
+     */
+    protected $count;
+
+    /**
      * Loads Excel from file
      *
      * @param string $file
@@ -28,7 +35,7 @@ class Xlsx extends BaseReader {
         $this->parser = new Excel2007();
         $this->parser->loadZip($file);
 
-        $this->makeGenerator();
+        $this->generator = $this->makeGenerator();
 
         return $this;
     }
@@ -41,9 +48,11 @@ class Xlsx extends BaseReader {
      */
     public function count($all = false) {
         if ($this->count === null) {
-            $sheet = $this->sheets()[$this->parser->getSheetIndex()] ?? [];
-            $row = $sheet['totalRows'] ?? 0;
-            $column = $sheet['totalColumns'] ?? 0;
+            $row = $column = 0;
+            if ($sheet = $this->sheets($this->parser->getSheetIndex())) {
+                $row = $sheet['totalRows'];
+                $column = $sheet['totalColumns'];
+            }
 
             $this->count = [
                 $this->rowLimit > 0 && $row > $this->rowLimit ? $this->rowLimit : $row,
@@ -57,37 +66,37 @@ class Xlsx extends BaseReader {
     /**
      * Get the work sheets info
      *
+     * @param int $index
      * @return array
      */
-    public function sheets() {
-        return $this->parser->parseWorksheetInfo();
+    public function sheets($index = null) {
+        $sheets = $this->parser->parseWorksheetInfo();
+
+        if ($index !== null) {
+            return $sheets[$index] ?? [];
+        }
+
+        return $sheets;
     }
 
     /**
      * Make the generator
+     *
+     * @return \Generator
      */
     protected function makeGenerator() {
-        $this->generator = call_user_func(function() {
-            list($rowLimit, $columnLimit) = $this->count(true);
-            $this->parser->worksheet = null;
+        $line = 0;
+        list($rowLimit, $columnLimit) = $this->count(true);
 
-            while ($rowLimit--) {
-                $row = $this->parser->getRow($columnLimit);
+        while ($line < $rowLimit) {
+            $row = $this->parser->getRow($line++, $columnLimit);
 
-                if (!$this->readEmptyCells && (empty($row) || trim(implode('', $row)) === '')) {
-                    continue;
-                }
-
-                // Fill the empty cell
-                for ($i = 0; $i < $columnLimit; $i++) {
-                    if (!isset($row[$i])) {
-                        $row[$i] = '';
-                    }
-                }
-
-                yield $row;
+            if (!$this->readEmptyCells && (empty($row) || trim(implode('', $row)) === '')) {
+                continue;
             }
-        });
+
+            yield $row;
+        }
     }
 
     /**

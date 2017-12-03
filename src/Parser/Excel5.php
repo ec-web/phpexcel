@@ -400,7 +400,7 @@ class Excel5 {
         $this->rowIndex = $rowIndex;
         $this->columnLimit = $columnLimit;
         $this->eor = false;
-        $this->row = [];
+        $this->row = $columnLimit ? array_fill(0, $columnLimit, '') : [];
 
         // Rewind or change sheet
         if ($rowIndex === 0 || $this->pos < $this->sheets[$this->sheetIndex]['offset']) {
@@ -480,13 +480,13 @@ class Excel5 {
      * @return bool
      */
     private function addCell($row, $column, $value, $xfIndex) {
-        if ($this->row != $row) {
+        if ($this->rowIndex != $row) {
             $this->eor = true;
 
             return false;
         }
 
-        if ($this->columnLimit > 0 || $column < $this->columnLimit) {
+        if (!$this->columnLimit || $column < $this->columnLimit) {
             $xfRecord = $this->xfRecords[$xfIndex];
             $this->row[$column] = self::toFormattedString($value, $xfRecord['format']);
         }

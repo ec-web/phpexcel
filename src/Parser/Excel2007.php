@@ -25,7 +25,35 @@ class Excel2007 {
      *
      * @var \XMLReader
      */
-    public $worksheet;
+    protected $worksheetXML;
+
+    /**
+     * Worksheet content
+     *
+     * @var string
+     */
+    protected $worksheet;
+
+    /**
+     * SharedStrings reader
+     *
+     * @var \XMLReader
+     */
+    protected $sharedStringsXML;
+
+    /**
+     * SharedStrings content
+     *
+     * @var string
+     */
+    private $sharedStrings;
+
+    /**
+     * SharedStrings position
+     *
+     * @var array
+     */
+    private $sharedStringsPosition = -1;
 
     /**
      * The current sheet of the file
@@ -33,13 +61,6 @@ class Excel2007 {
      * @var int
      */
     private $sheetIndex = 0;
-
-    /**
-     * Shared strings
-     *
-     * @var array
-     */
-    private $sharedStrings;
 
     /**
      * Style xfs
@@ -76,6 +97,11 @@ class Excel2007 {
      */
     private static $libXmlLoaderOptions;
 
+    /**
+     * Base date
+     *
+     * @var \DateTime
+     */
     private static $baseDate;
     private static $decimalSeparator = '.';
     private static $thousandSeparator = ',';
@@ -142,18 +168,19 @@ class Excel2007 {
 
             $this->sheets = [];
             if (isset($workbookXML->sheets) && $workbookXML->sheets) {
+                $xml = new \XMLReader();
+
                 foreach ($workbookXML->sheets->sheet as $sheet) {
                     $info = [
                         'name' => (string)$sheet['name'], 'lastColumnLetter' => 'A', 'lastColumnIndex' => 0,
                         'totalRows' => 0, 'totalColumns' => 0
                     ];
 
-                    $xml = new \XMLReader();
                     $xml->xml(
                         $this->securityScan($this->zip->getFromName("xl/worksheets/sheet{$sheet['sheetId']}.xml")),
                         null, self::getLibXmlLoaderOptions()
                     );
-                    $xml->setParserProperty(\XMLReader::ATTRIBUTE, true);
+                    $xml->setParserProperty(\XMLReader::DEFAULTATTRS, true);
 
                     $columnCount = 0;
                     while ($xml->read()) {
@@ -165,7 +192,6 @@ class Excel2007 {
                             $columnCount++;
                         }
                     }
-                    $xml->close();
 
                     $info['totalColumns'] = max($info['totalColumns'], $columnCount);
                     $info['lastColumnIndex'] = $info['totalColumns'] - 1;
@@ -173,6 +199,8 @@ class Excel2007 {
 
                     $this->sheets[] = $info;
                 }
+
+                $xml->close();
             }
         }
 
@@ -180,27 +208,46 @@ class Excel2007 {
     }
 
     /**
-     * Parse sharedStrings and styles info
+     * Get shared string
+     *
+     * @param int $position
+     * @return string
      */
-    protected function parseSharedStringsAndStyles() {
-        if ($this->sharedStrings === null) {
-            $sharedStringsXML = simplexml_load_string(
-                $this->securityScan($this->zip->getFromName('xl/sharedStrings.xml')),
-                'SimpleXMLElement', self::getLibXmlLoaderOptions()
-            );
+    protected function getSharedString($position) {
+        $value = '';
 
-            $this->sharedStrings = [];
-            if ($sharedStringsXML && isset($sharedStringsXML->si)) {
-                foreach ($sharedStringsXML->si as $val) {
-                    if (isset($val->t)) {
-                        $this->sharedStrings[] = (string)$val->t;
-                    } elseif (isset($val->r)) {
-                        $this->sharedStrings[] = self::parseRichText($val);
-                    }
+        if ($this->sharedStringsXML === null) {
+            $this->sharedStringsXML = new \XMLReader();
+            $this->sharedStrings = $this->securityScan($this->zip->getFromName('xl/sharedStrings.xml'));
+        }
+
+        if ($this->sharedStringsPosition < 0 || $position < $this->sharedStringsPosition) {
+            $this->sharedStringsXML->xml($this->sharedStrings, null, self::getLibXmlLoaderOptions());
+
+            $this->sharedStringsPosition = -1;
+        }
+
+        while ($this->sharedStringsXML->read()) {
+            $name = $this->sharedStringsXML->name;
+            $nodeType = $this->sharedStringsXML->nodeType;
+
+            if ($nodeType == \XMLReader::ELEMENT) {
+                if ($name == 'si') {
+                    $this->sharedStringsPosition++;
+                } elseif ($position == $this->sharedStringsPosition && $name == 't') {
+                    $value = $this->sharedStringsXML->readString();
+                    break;
                 }
             }
         }
 
+        return $value;
+    }
+
+    /**
+     * Parse styles info
+     */
+    protected function parseStyles() {
         if ($this->styleXfs === null) {
             $stylesXML = simplexml_load_string(
                 $this->securityScan($this->zip->getFromName('xl/styles.xml')),
@@ -234,90 +281,75 @@ class Excel2007 {
     }
 
     /**
-     * Return the text content from a rich text or inline string field
-     *
-     * @param object $is
-     * @return string
-     */
-    private static function parseRichText($is = null) {
-        $value = [];
-
-        if (isset($is->t)) {
-            $value[] = (string)$is->t;
-        } else {
-            foreach ($is->r as $run) {
-                $value[] = (string)$run->t;
-            }
-        }
-
-        return implode(' ', $value);
-    }
-
-    /**
      * Get row data
      *
+     * @param int $rowIndex
      * @param int $columnLimit
      *
      * @return array
      */
-    public function getRow($columnLimit = 0) {
-        $this->parseWorksheetInfo();
-        $this->parseSharedStringsAndStyles();
+    public function getRow($rowIndex, $columnLimit = 0) {
+        $this->parseStyles();
 
-        $row = [];
-        $index = $this->getSheetIndex();
+        $row = $columnLimit ? array_fill(0, $columnLimit, '') : [];
+
+        if ($this->worksheetXML === null) {
+            $this->worksheetXML = new \XMLReader();
+        }
+
         if ($this->worksheet === null) {
-            $this->worksheet = new \XMLReader();
-            $this->worksheet->xml(
-                $this->securityScan($this->zip->getFromName('xl/worksheets/sheet' . ($index + 1) . '.xml')),
-                null, self::getLibXmlLoaderOptions()
+            $this->worksheet = $this->securityScan(
+                $this->zip->getFromName('xl/worksheets/sheet'.($this->getSheetIndex()+1).'.xml')
             );
         }
 
-        $styleId = 0;
+        if ($rowIndex === 0) {
+            $this->worksheetXML->xml($this->worksheet, null, self::getLibXmlLoaderOptions());
+        }
+
+        $index = $styleId = 0;
         $sharedString = false;
-        while ($this->worksheet->read()) {
-            $name = $this->worksheet->name;
+        while ($this->worksheetXML->read()) {
+            $name = $this->worksheetXML->name;
 
             // End of row
-            if ($name == 'row' && $this->worksheet->nodeType == \XMLReader::END_ELEMENT) {
+            if ($name == 'row' && $this->worksheetXML->nodeType == \XMLReader::END_ELEMENT) {
                 break;
             }
 
-            if ($columnLimit > 0 && $index >= $columnLimit - 1) {
+            if ($columnLimit > 0 && $index >= $columnLimit) {
                 continue;
             }
 
             switch ($name) {
                 // Cell
                 case 'c':
-                    if ($this->worksheet->nodeType == \XMLReader::END_ELEMENT) {
+                    if ($this->worksheetXML->nodeType == \XMLReader::END_ELEMENT) {
                         continue;
                     }
 
-                    $styleId = (int)$this->worksheet->getAttribute('s');
-                    $letter = preg_replace('{[^[:alpha:]]}S', '', $this->worksheet->getAttribute('r'));
-                    $index = Format::columnIndexFromString($letter);
+                    $styleId = (int)$this->worksheetXML->getAttribute('s');
+                    $letter = preg_replace('{[^[:alpha:]]}S', '', $this->worksheetXML->getAttribute('r'));
+                    $index = Format::columnIndexFromString($letter) - 1;
 
                     // Determine cell type
                     $sharedString = false;
-                    if ($this->worksheet->getAttribute('t') == self::CELL_TYPE_SHARED_STR) {
+                    if ($this->worksheetXML->getAttribute('t') == self::CELL_TYPE_SHARED_STR) {
                         $sharedString = true;
                     }
 
-                    $row[$index] = '';
                     break;
 
                 // Cell value
                 case 'v':
                 case 'is':
-                    if ($this->worksheet->nodeType == \XMLReader::END_ELEMENT) {
+                    if ($this->worksheetXML->nodeType == \XMLReader::END_ELEMENT) {
                         continue;
                     }
 
-                    $value = $this->worksheet->readString();
+                    $value = $this->worksheetXML->readString();
                     if ($sharedString) {
-                        $value = $this->sharedStrings[$value];
+                        $value = $this->getSharedString($value);
                     }
 
                     // Format value if necessary
@@ -330,8 +362,6 @@ class Excel2007 {
                     $row[$index] = $value;
                     break;
             }
-
-
         }
 
         return $row;
