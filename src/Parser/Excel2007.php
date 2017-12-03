@@ -182,20 +182,29 @@ class Excel2007 {
                     );
                     $xml->setParserProperty(\XMLReader::DEFAULTATTRS, true);
 
-                    $columnCount = 0;
+                    $columnLetter = '';
                     while ($xml->read()) {
-                        if ($xml->name == 'row' && $xml->nodeType == \XMLReader::ELEMENT) {
-                            $info['totalRows'] = (int)$xml->getAttribute('r');
-                            $info['totalColumns'] = max($info['totalColumns'], $columnCount);
-                            $columnCount = 0;
+                        if ($xml->name == 'row') {
+                            if ($xml->nodeType == \XMLReader::ELEMENT) {
+                                $info['totalRows'] = (int)$xml->getAttribute('r');
+                            } elseif ($xml->nodeType == \XMLReader::END_ELEMENT) {
+                                if ($columnLetter) {
+                                    $info['totalColumns'] = max(
+                                        $info['totalColumns'], Format::columnIndexFromString($columnLetter)
+                                    );
+                                }
+
+                                $columnLetter = '';
+                            }
                         } elseif ($xml->name == 'c' && $xml->nodeType == \XMLReader::ELEMENT) {
-                            $columnCount++;
+                            $columnLetter = $xml->getAttribute('r'){0};
                         }
                     }
 
-                    $info['totalColumns'] = max($info['totalColumns'], $columnCount);
-                    $info['lastColumnIndex'] = $info['totalColumns'] - 1;
-                    $info['lastColumnLetter'] = Format::stringFromColumnIndex($info['lastColumnIndex']);
+                    if ($info['totalColumns']) {
+                        $info['lastColumnIndex'] = $info['totalColumns'] - 1;
+                        $info['lastColumnLetter'] = Format::stringFromColumnIndex($info['lastColumnIndex']);
+                    }
 
                     $this->sheets[] = $info;
                 }
