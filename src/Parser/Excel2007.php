@@ -377,6 +377,23 @@ class Excel2007 {
     }
 
     /**
+     * Close ZipArchive and XMLReader
+     */
+    public function __destruct() {
+        if ($this->zip) {
+            $this->zip->close();
+        }
+
+        if ($this->worksheetXML) {
+            $this->worksheetXML->close();
+        }
+
+        if ($this->sharedStringsXML) {
+            $this->sharedStringsXML->close();
+        }
+    }
+
+    /**
      * Formats the value according to the index
      *
      * @param string $value

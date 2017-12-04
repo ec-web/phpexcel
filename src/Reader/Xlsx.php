@@ -135,4 +135,12 @@ class Xlsx extends BaseReader {
 
         return true;
     }
+
+    /**
+     * Release parser and generator
+     */
+    public function __destruct() {
+        $this->parser = null;
+        $this->generator = null;
+    }
 }

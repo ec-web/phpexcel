@@ -94,6 +94,11 @@ class Csv extends BaseReader {
                 break;
             }
 
+            if ($calculate) {
+                yield;
+                continue;
+            }
+
             if ($this->columnLimit > 0) {
                 $row = array_slice($row, 0, $this->columnLimit);
             }
@@ -102,26 +107,22 @@ class Csv extends BaseReader {
                 continue;
             }
 
-            if ($calculate) {
-                yield;
-            } else {
-                foreach ($row as &$value) {
-                    if ($value != '') {
-                        if (is_numeric($value)) {
-                            $value = (float)$value;
-                        }
+            foreach ($row as &$value) {
+                if ($value != '') {
+                    if (is_numeric($value)) {
+                        $value = (float)$value;
+                    }
 
-                        // Convert encoding if necessary
-                        if ($this->inputEncoding !== 'UTF-8') {
-                            $value = mb_convert_encoding($value, 'UTF-8', $this->inputEncoding);
-                        }
+                    // Convert encoding if necessary
+                    if ($this->inputEncoding !== 'UTF-8') {
+                        $value = mb_convert_encoding($value, 'UTF-8', $this->inputEncoding);
                     }
                 }
-
-                unset($value);
-
-                yield $row;
             }
+
+            unset($value);
+
+            yield $row;
         }
 
         ini_set('auto_detect_line_endings', $lineEnding);
@@ -251,7 +252,6 @@ class Csv extends BaseReader {
      * @return bool
      */
     public function canRead($file) {
-        // Check if file exists
         try {
             $this->openFile($file);
         } catch (\Exception $e) {
@@ -281,5 +281,16 @@ class Csv extends BaseReader {
         if ($this->fileHandle === false) {
             throw new ReaderException("Could not open file [$file] for reading.");
         }
+    }
+
+    /**
+     * Close file and release generator
+     */
+    public function __destruct() {
+        if ($this->fileHandle) {
+            fclose($this->fileHandle);
+        }
+
+        $this->generator = null;
     }
 }
