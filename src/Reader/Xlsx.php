@@ -55,8 +55,8 @@ class Xlsx extends BaseReader {
             }
 
             $this->count = [
-                $this->rowLimit > 0 && $row > $this->rowLimit ? $this->rowLimit : $row,
-                $this->columnLimit > 0 && $column > $this->columnLimit ? $this->columnLimit : $column
+                $this->rowLimit > 0 ? min($row, $this->rowLimit) : $row,
+                $this->columnLimit > 0 ? min($column, $this->columnLimit) : $column
             ];
         }
 
