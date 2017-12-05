@@ -39,13 +39,6 @@ abstract class BaseReader implements ReaderInterface {
     protected $columnLimit;
 
     /**
-     * Ignore empty row
-     *
-     * @var bool
-     */
-    protected $ignoreEmpty = false;
-
-    /**
      * Return the current element
      *
      * @return array
@@ -97,13 +90,9 @@ abstract class BaseReader implements ReaderInterface {
      * Ignore empty row
      *
      * @param bool $ignoreEmpty
-     *
-     * @return $this
      */
     public function ignoreEmptyRow($ignoreEmpty = false) {
-        $this->ignoreEmpty = $ignoreEmpty;
 
-        return $this;
     }
 
     /**

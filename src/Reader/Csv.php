@@ -46,6 +46,13 @@ class Csv extends BaseReader {
     protected $enclosure = '"';
 
     /**
+     * Ignore empty row
+     *
+     * @var bool
+     */
+    protected $ignoreEmpty = false;
+
+    /**
      * Loads Excel from file
      *
      * @param string $file
@@ -90,8 +97,8 @@ class Csv extends BaseReader {
 
         $rowLimit = 0;
         while (($row = fgetcsv($this->fileHandle, 0, $this->delimiter, $this->enclosure)) !== false) {
-            if ($this->rowLimit > 0 && ++$rowLimit > $this->rowLimit) {
-                break;
+            if ($this->ignoreEmpty && (empty($row) || trim(implode('', $row)) === '')) {
+                continue;
             }
 
             if ($calculate) {
@@ -99,12 +106,12 @@ class Csv extends BaseReader {
                 continue;
             }
 
-            if ($this->columnLimit > 0) {
-                $row = array_slice($row, 0, $this->columnLimit);
+            if ($this->rowLimit > 0 && ++$rowLimit > $this->rowLimit) {
+                break;
             }
 
-            if ($this->ignoreEmpty && (empty($row) || trim(implode('', $row)) === '')) {
-                continue;
+            if ($this->columnLimit > 0) {
+                $row = array_slice($row, 0, $this->columnLimit);
             }
 
             foreach ($row as &$value) {
@@ -175,6 +182,19 @@ class Csv extends BaseReader {
         }
 
         fseek($this->fileHandle, $this->start);
+    }
+
+    /**
+     * Ignore empty row
+     *
+     * @param bool $ignoreEmpty
+     *
+     * @return $this
+     */
+    public function ignoreEmptyRow($ignoreEmpty = false) {
+        $this->ignoreEmpty = $ignoreEmpty;
+
+        return $this;
     }
 
     /**

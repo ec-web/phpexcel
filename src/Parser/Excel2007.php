@@ -63,6 +63,13 @@ class Excel2007 {
     private $sheetIndex = 0;
 
     /**
+     * Ignore empty row
+     *
+     * @var bool
+     */
+    private $ignoreEmpty = false;
+
+    /**
      * Style xfs
      *
      * @var array
@@ -130,6 +137,28 @@ class Excel2007 {
     }
 
     /**
+     * Ignore empty row
+     *
+     * @param bool $ignoreEmpty
+     *
+     * @return $this
+     */
+    public function ignoreEmptyRow($ignoreEmpty) {
+        $this->ignoreEmpty = $ignoreEmpty;
+
+        return $this;
+    }
+
+    /**
+     * Whether is ignore empty row
+     *
+     * @return bool
+     */
+    public function isIgnoreEmptyRow() {
+        return $this->ignoreEmpty;
+    }
+
+    /**
      * Set sheet index
      *
      * @param int $index
@@ -176,7 +205,7 @@ class Excel2007 {
                         'totalRows' => 0, 'totalColumns' => 0
                     ];
 
-                    $xml->xml(
+                    $xml->XML(
                         $this->securityScan($this->zip->getFromName("xl/worksheets/sheet{$sheet['sheetId']}.xml")),
                         null, self::getLibXmlLoaderOptions()
                     );
@@ -186,7 +215,11 @@ class Excel2007 {
                     while ($xml->read()) {
                         if ($xml->name == 'row') {
                             if ($xml->nodeType == \XMLReader::ELEMENT) {
-                                $info['totalRows'] = (int)$xml->getAttribute('r');
+                                if ($this->ignoreEmpty) {
+                                    $info['totalRows']++;
+                                } else {
+                                    $info['totalRows'] = (int)$xml->getAttribute('r');
+                                }
                             } elseif ($xml->nodeType == \XMLReader::END_ELEMENT) {
                                 if ($columnLetter) {
                                     $info['totalColumns'] = max(
@@ -231,7 +264,7 @@ class Excel2007 {
         }
 
         if ($this->sharedStringsPosition < 0 || $position < $this->sharedStringsPosition) {
-            $this->sharedStringsXML->xml($this->sharedStrings, null, self::getLibXmlLoaderOptions());
+            $this->sharedStringsXML->XML($this->sharedStrings, null, self::getLibXmlLoaderOptions());
 
             $this->sharedStringsPosition = -1;
         }
@@ -313,17 +346,27 @@ class Excel2007 {
         }
 
         if ($rowIndex === 0) {
-            $this->worksheetXML->xml($this->worksheet, null, self::getLibXmlLoaderOptions());
+            $this->worksheetXML->XML($this->worksheet, null, self::getLibXmlLoaderOptions());
         }
 
         $index = $styleId = 0;
         $sharedString = false;
         while ($this->worksheetXML->read()) {
             $name = $this->worksheetXML->name;
+            $type = $this->worksheetXML->nodeType;
 
             // End of row
-            if ($name == 'row' && $this->worksheetXML->nodeType == \XMLReader::END_ELEMENT) {
-                break;
+            if ($name == 'row') {
+                if (!$this->ignoreEmpty && $type == \XMLReader::ELEMENT
+                    && $rowIndex+1 != (int)$this->worksheetXML->getAttribute('r')) {
+
+                    $this->worksheetXML->moveToElement();
+                    break;
+                }
+
+                if ($type == \XMLReader::END_ELEMENT) {
+                    break;
+                }
             }
 
             if ($columnLimit > 0 && $index >= $columnLimit) {
@@ -333,7 +376,7 @@ class Excel2007 {
             switch ($name) {
                 // Cell
                 case 'c':
-                    if ($this->worksheetXML->nodeType == \XMLReader::END_ELEMENT) {
+                    if ($type == \XMLReader::END_ELEMENT) {
                         continue;
                     }
 
@@ -352,7 +395,7 @@ class Excel2007 {
                 // Cell value
                 case 'v':
                 case 'is':
-                    if ($this->worksheetXML->nodeType == \XMLReader::END_ELEMENT) {
+                    if ($type == \XMLReader::END_ELEMENT) {
                         continue;
                     }
 

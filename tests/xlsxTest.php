@@ -14,6 +14,8 @@ $reader = EC\PHPExcel\Excel::load('files/01.xlsx', function(EC\PHPExcel\Reader\X
     $reader->setRowLimit(10);
     $reader->setColumnLimit(10);
 
+    $reader->ignoreEmptyRow(true);
+
     //$reader->setSheetIndex(0);
 });
 

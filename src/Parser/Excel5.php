@@ -160,6 +160,13 @@ class Excel5 {
     private $sheetIndex = 0;
 
     /**
+     * Ignore empty row
+     *
+     * @var bool
+     */
+    private $ignoreEmpty = false;
+
+    /**
      * The current row index of the sheet
      *
      * @var int
@@ -238,6 +245,28 @@ class Excel5 {
         $oleRead = new OLERead();
         $oleRead->read($file);
         $this->data = $oleRead->getStream($oleRead->workbook);
+    }
+
+    /**
+     * Ignore empty row
+     *
+     * @param bool $ignoreEmpty
+     *
+     * @return $this
+     */
+    public function ignoreEmptyRow($ignoreEmpty) {
+        $this->ignoreEmpty = $ignoreEmpty;
+
+        return $this;
+    }
+
+    /**
+     * Whether is ignore empty row
+     *
+     * @return bool
+     */
+    public function isIgnoreEmptyRow() {
+        return $this->ignoreEmpty;
     }
 
     /**
@@ -356,7 +385,12 @@ class Excel5 {
                             $rowIndex = Format::getInt2d($recordData, 0) + 1;
                             $columnIndex = Format::getInt2d($recordData, 2);
 
-                            $sheet['totalRows'] = max($sheet['totalRows'], $rowIndex);
+                            if ($this->ignoreEmpty) {
+                                $sheet['totalRows']++;
+                            } else {
+                                $sheet['totalRows'] = max($sheet['totalRows'], $rowIndex);
+                            }
+
                             $sheet['lastColumnIndex'] = max($sheet['lastColumnIndex'], $columnIndex);
                             break;
 

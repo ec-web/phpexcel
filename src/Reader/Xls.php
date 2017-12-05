@@ -25,6 +25,10 @@ class Xls extends BaseReader {
      */
     protected $count;
 
+    public function __construct() {
+        $this->parser = new Excel5();
+    }
+
     /**
      * Loads Excel from file
      *
@@ -33,7 +37,6 @@ class Xls extends BaseReader {
      * @return $this
      */
     public function load($file) {
-        $this->parser = new Excel5();
         $this->parser->loadOLE($file);
 
         $this->generator = $this->makeGenerator();
@@ -92,12 +95,25 @@ class Xls extends BaseReader {
         while ($line < $rowLimit) {
             $row = $this->parser->getRow($line++, $columnLimit);
 
-            if ($this->ignoreEmpty && (empty($row) || trim(implode('', $row)) === '')) {
+            if ($this->parser->isIgnoreEmptyRow() && (empty($row) || trim(implode('', $row)) === '')) {
                 continue;
             }
 
             yield $row;
         }
+    }
+
+    /**
+     * Ignore empty row
+     *
+     * @param bool $ignoreEmpty
+     *
+     * @return $this
+     */
+    public function ignoreEmptyRow($ignoreEmpty = false) {
+        $this->parser->ignoreEmptyRow($ignoreEmpty);
+
+        return $this;
     }
 
     /**

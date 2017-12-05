@@ -30,7 +30,7 @@ class Excel {
         }
 
         $class = __NAMESPACE__ . '\\Reader\\' . $format;
-        $reader = (new $class)->load($file);
+        $reader = new $class;
 
         if ($callback) {
             if ($callback instanceof \Closure) {
@@ -46,7 +46,7 @@ class Excel {
             $reader->setInputEncoding($encoding);
         }
 
-        return $reader;
+        return $reader->load($file);
     }
 
     /**
