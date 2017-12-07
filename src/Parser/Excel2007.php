@@ -441,7 +441,6 @@ class Excel2007 {
 
             while($item = readdir($handle)) {
                 if ($item != '.' && $item != '..') {
-                    var_dump($item);
                     is_file($item = $dir . '/' . $item) ? unlink($item) : $this->removeDir($item);
                 }
             }
