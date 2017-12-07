@@ -77,7 +77,9 @@ class Csv extends BaseReader {
      */
     public function count() {
         if ($this->count === null) {
+            $position = ftell($this->fileHandle);
             $this->count = iterator_count($this->makeGenerator(true));
+            fseek($this->fileHandle, $position);
         }
 
         return $this->count;

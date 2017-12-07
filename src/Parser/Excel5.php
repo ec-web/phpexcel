@@ -352,7 +352,7 @@ class Excel5 {
             }
 
             // Parse the individual sheets
-            foreach ($this->sheets as &$sheet) {
+            foreach ($this->sheets as $key => $sheet) {
                 if ($sheet['sheetType'] != 0x00) {
                     // 0x00: Worksheet
                     // 0x02: Chart
@@ -360,11 +360,12 @@ class Excel5 {
                     continue;
                 }
 
-                $sheet['lastColumnLetter'] = 'A';
-                $sheet['lastColumnIndex'] = 0;
+                $sheet['lastColumnLetter'] = '';
+                $sheet['lastColumnIndex'] = null;
                 $sheet['totalRows'] = 0;
                 $sheet['totalColumns'] = 0;
 
+                $lastRowIndex = 0;
                 $this->pos = $sheet['offset'];
                 while ($this->pos <= $this->dataSize - 4) {
                     $code = Format::getInt2d($this->data, $this->pos);
@@ -386,12 +387,16 @@ class Excel5 {
                             $columnIndex = Format::getInt2d($recordData, 2);
 
                             if ($this->ignoreEmpty) {
-                                $sheet['totalRows']++;
+                                if ($lastRowIndex < $rowIndex) {
+                                    $sheet['totalRows']++;
+                                }
+
+                                $lastRowIndex = $rowIndex;
                             } else {
                                 $sheet['totalRows'] = max($sheet['totalRows'], $rowIndex);
                             }
 
-                            $sheet['lastColumnIndex'] = max($sheet['lastColumnIndex'], $columnIndex);
+                            $sheet['lastColumnIndex'] = max($columnIndex, $sheet['lastColumnIndex']);
                             break;
 
                         case self::XLS_TYPE_BOF:
@@ -408,11 +413,18 @@ class Excel5 {
                     }
                 }
 
-                $sheet['lastColumnLetter'] = Format::stringFromColumnIndex($sheet['lastColumnIndex']);
-                $sheet['totalColumns'] = $sheet['lastColumnIndex'] + 1;
-            }
+                if ($sheet['lastColumnIndex'] !== null) {
+                    $sheet['lastColumnLetter'] = Format::stringFromColumnIndex($sheet['lastColumnIndex']);
+                } else {
+                    $sheet['lastColumnIndex'] = 0;
+                }
 
-            unset($sheet);
+                if ($sheet['lastColumnLetter']) {
+                    $sheet['totalColumns'] = $sheet['lastColumnIndex'] + 1;
+                }
+
+                $this->sheets[$key] = $sheet;
+            }
 
             $this->pos = 0;
         }
@@ -1924,7 +1936,7 @@ class Excel5 {
         foreach($blocks as $key => &$block) {
             if ($key % 2 == 0) {
                 $block = strtr($block, Format::$dateFormatReplacements);
-                if (!strpos($block, 'A')) {
+                if (strpos($block, 'A') === false) {
                     // 24-hour time format
                     $block = strtr($block, Format::$dateFormatReplacements24);
                 } else {

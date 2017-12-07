@@ -211,26 +211,24 @@ class Excel2007 {
                     );
                     $xml->setParserProperty(\XMLReader::DEFAULTATTRS, true);
 
-                    $columnLetter = '';
+                    $nonEmpty = false;
                     while ($xml->read()) {
                         if ($xml->name == 'row') {
                             if ($xml->nodeType == \XMLReader::ELEMENT) {
-                                if ($this->ignoreEmpty) {
-                                    $info['totalRows']++;
-                                } else {
+                                if (!$this->ignoreEmpty) {
                                     $info['totalRows'] = (int)$xml->getAttribute('r');
                                 }
-                            } elseif ($xml->nodeType == \XMLReader::END_ELEMENT) {
-                                if ($columnLetter) {
-                                    $info['totalColumns'] = max(
-                                        $info['totalColumns'], Format::columnIndexFromString($columnLetter)
-                                    );
-                                }
 
-                                $columnLetter = '';
+                                if (!$info['totalColumns']) {
+                                    list(, $info['totalColumns']) = explode(':', (string)$xml->getAttribute('spans'));
+                                }
+                            } elseif ($this->ignoreEmpty && $nonEmpty && $xml->nodeType == \XMLReader::END_ELEMENT) {
+                                $info['totalRows']++;
+
+                                $nonEmpty = false;
                             }
-                        } elseif ($xml->name == 'c' && $xml->nodeType == \XMLReader::ELEMENT) {
-                            $columnLetter = $xml->getAttribute('r'){0};
+                        } elseif (!$nonEmpty && $xml->name == 'v' && $xml->nodeType == \XMLReader::ELEMENT) {
+                            $nonEmpty = true;
                         }
                     }
 
