@@ -14,6 +14,13 @@ class Excel2007 {
     const CELL_TYPE_SHARED_STR = 's';
 
     /**
+     * Temporary directory
+     *
+     * @var string
+     */
+    protected $tmpDir;
+
+    /**
      * ZipArchive reader
      *
      * @var \ZipArchive
@@ -28,25 +35,11 @@ class Excel2007 {
     protected $worksheetXML;
 
     /**
-     * Worksheet content
-     *
-     * @var string
-     */
-    protected $worksheet;
-
-    /**
      * SharedStrings reader
      *
      * @var \XMLReader
      */
     protected $sharedStringsXML;
-
-    /**
-     * SharedStrings content
-     *
-     * @var string
-     */
-    private $sharedStrings;
 
     /**
      * SharedStrings position
@@ -121,7 +114,7 @@ class Excel2007 {
      * @param string $file
      */
     public function loadZip($file) {
-        $this->zip = $this->openFile($file);
+        $this->openFile($file);
 
         // Setting base date
         if (!self::$baseDate) {
@@ -167,8 +160,9 @@ class Excel2007 {
      */
     public function setSheetIndex($index) {
         if ($index != $this->sheetIndex) {
-            $this->worksheet = null;
             $this->sheetIndex = $index;
+
+            $this->getWorksheetXML();
         }
 
         return $this;
@@ -191,8 +185,7 @@ class Excel2007 {
     public function parseWorksheetInfo() {
         if ($this->sheets === null) {
             $workbookXML = simplexml_load_string(
-                $this->securityScan($this->zip->getFromName('xl/workbook.xml')),
-                'SimpleXMLElement', self::getLibXmlLoaderOptions()
+                $this->securityScan($this->zip->getFromName('xl/workbook.xml')), 'SimpleXMLElement', self::getLibXmlLoaderOptions()
             );
 
             $this->sheets = [];
@@ -201,14 +194,13 @@ class Excel2007 {
 
                 foreach ($workbookXML->sheets->sheet as $sheet) {
                     $info = [
-                        'name' => (string)$sheet['name'], 'lastColumnLetter' => 'A', 'lastColumnIndex' => 0,
+                        'name' => (string)$sheet['name'], 'lastColumnLetter' => '', 'lastColumnIndex' => 0,
                         'totalRows' => 0, 'totalColumns' => 0
                     ];
 
-                    $xml->XML(
-                        $this->securityScan($this->zip->getFromName("xl/worksheets/sheet{$sheet['sheetId']}.xml")),
-                        null, self::getLibXmlLoaderOptions()
-                    );
+                    $this->zip->extractTo($this->tmpDir, $file = "xl/worksheets/sheet{$sheet['sheetId']}.xml");
+                    $xml->open($this->tmpDir . '/' . $file, null, self::getLibXmlLoaderOptions());
+
                     $xml->setParserProperty(\XMLReader::DEFAULTATTRS, true);
 
                     $nonEmpty = false;
@@ -256,13 +248,15 @@ class Excel2007 {
     protected function getSharedString($position) {
         $value = '';
 
+        $file = 'xl/sharedStrings.xml';
         if ($this->sharedStringsXML === null) {
             $this->sharedStringsXML = new \XMLReader();
-            $this->sharedStrings = $this->securityScan($this->zip->getFromName('xl/sharedStrings.xml'));
+
+            $this->zip->extractTo($this->tmpDir, $file);
         }
 
         if ($this->sharedStringsPosition < 0 || $position < $this->sharedStringsPosition) {
-            $this->sharedStringsXML->XML($this->sharedStrings, null, self::getLibXmlLoaderOptions());
+            $this->sharedStringsXML->open($this->tmpDir . '/' . $file, null, self::getLibXmlLoaderOptions());
 
             $this->sharedStringsPosition = -1;
         }
@@ -290,8 +284,7 @@ class Excel2007 {
     protected function parseStyles() {
         if ($this->styleXfs === null) {
             $stylesXML = simplexml_load_string(
-                $this->securityScan($this->zip->getFromName('xl/styles.xml')),
-                'SimpleXMLElement', self::getLibXmlLoaderOptions()
+                $this->securityScan($this->zip->getFromName('xl/styles.xml')), 'SimpleXMLElement', self::getLibXmlLoaderOptions()
             );
 
             $this->styleXfs = $this->formats = [];
@@ -321,6 +314,20 @@ class Excel2007 {
     }
 
     /**
+     * Get worksheet XMLReader
+     */
+    protected function getWorksheetXML() {
+        if ($this->worksheetXML === null) {
+            $this->worksheetXML = new \XMLReader();
+        }
+
+        $this->worksheetXML->open(
+            $this->tmpDir . '/xl/worksheets/sheet' . ($this->getSheetIndex() + 1) . '.xml',
+            null, self::getLibXmlLoaderOptions()
+        );
+    }
+
+    /**
      * Get row data
      *
      * @param int $rowIndex
@@ -330,25 +337,12 @@ class Excel2007 {
      */
     public function getRow($rowIndex, $columnLimit = 0) {
         $this->parseStyles();
+        $rowIndex === 0 && $this->getWorksheetXML();
 
+        $sharedString = false;
+        $index = $styleId = 0;
         $row = $columnLimit ? array_fill(0, $columnLimit, '') : [];
 
-        if ($this->worksheetXML === null) {
-            $this->worksheetXML = new \XMLReader();
-        }
-
-        if ($this->worksheet === null) {
-            $this->worksheet = $this->securityScan(
-                $this->zip->getFromName('xl/worksheets/sheet'.($this->getSheetIndex()+1).'.xml')
-            );
-        }
-
-        if ($rowIndex === 0) {
-            $this->worksheetXML->XML($this->worksheet, null, self::getLibXmlLoaderOptions());
-        }
-
-        $index = $styleId = 0;
-        $sharedString = false;
         while ($this->worksheetXML->read()) {
             $name = $this->worksheetXML->name;
             $type = $this->worksheetXML->nodeType;
@@ -418,7 +412,7 @@ class Excel2007 {
     }
 
     /**
-     * Close ZipArchive and XMLReader
+     * Close ZipArchive、XMLReader and remove temp dir
      */
     public function __destruct() {
         if ($this->zip) {
@@ -431,6 +425,29 @@ class Excel2007 {
 
         if ($this->sharedStringsXML) {
             $this->sharedStringsXML->close();
+        }
+
+        $this->removeDir($this->tmpDir);
+    }
+
+    /**
+     * Remove dir
+     *
+     * @param string $dir
+     */
+    protected function removeDir($dir) {
+        if($dir && is_dir($dir)) {
+            $handle = opendir($dir);
+
+            while($item = readdir($handle)) {
+                if ($item != '.' && $item != '..') {
+                    var_dump($item);
+                    is_file($item = $dir . '/' . $item) ? unlink($item) : $this->removeDir($item);
+                }
+            }
+
+            closedir($handle);
+            rmdir($dir);
         }
     }
 
@@ -707,7 +724,6 @@ class Excel2007 {
      * @param string $file
      *
      * @throws ParserException|ReaderException
-     * @return \ZipArchive
      */
     public function openFile($file) {
         // Check if file exists
@@ -715,13 +731,16 @@ class Excel2007 {
             throw new ReaderException("Could not open file [$file] for reading! File does not exist.");
         }
 
-        $zip = new \ZipArchive();
+        $this->zip = new \ZipArchive();
 
         $xl = false;
-        if ($zip->open($file) === true) {
+        if ($this->zip->open($file) === true) {
+            $this->tmpDir = sys_get_temp_dir() . '/' . uniqid();
+
             // check if it is an OOXML archive
             $rels = simplexml_load_string(
-                $this->securityScan($zip->getFromName('_rels/.rels')), 'SimpleXMLElement', self::getLibXmlLoaderOptions()
+                $this->securityScan($this->zip->getFromName('_rels/.rels')),
+                'SimpleXMLElement', self::getLibXmlLoaderOptions()
             );
 
             if ($rels !== false) {
@@ -740,11 +759,9 @@ class Excel2007 {
 
         if ($xl === false) {
             throw new ParserException(
-                "The file [$file] is not recognised as a zip archive: " . $zip->getStatusString()
+                "The file [$file] is not recognised as a zip archive: " . $this->zip->getStatusString()
             );
         }
-
-        return $zip;
     }
 
     /**
