@@ -204,21 +204,21 @@ class Excel2007 {
                     $xml->setParserProperty(\XMLReader::DEFAULTATTRS, true);
 
                     $nonEmpty = false;
+                    $column = '';
                     while ($xml->read()) {
                         if ($xml->name == 'row') {
-                            if ($xml->nodeType == \XMLReader::ELEMENT) {
-                                if (!$this->ignoreEmpty) {
-                                    $info['totalRows'] = (int)$xml->getAttribute('r');
+                            if (!$this->ignoreEmpty && $xml->nodeType == \XMLReader::ELEMENT) {
+                                $info['totalRows'] = (int)$xml->getAttribute('r');
+                            } elseif ($xml->nodeType == \XMLReader::END_ELEMENT) {
+                                if ($this->ignoreEmpty && $nonEmpty) {
+                                    $info['totalRows']++;
+                                    $nonEmpty = false;
                                 }
 
-                                if (!$info['totalColumns']) {
-                                    list(, $info['totalColumns']) = explode(':', (string)$xml->getAttribute('spans'));
-                                }
-                            } elseif ($this->ignoreEmpty && $nonEmpty && $xml->nodeType == \XMLReader::END_ELEMENT) {
-                                $info['totalRows']++;
-
-                                $nonEmpty = false;
+                                $info['totalColumns'] = Format::columnIndexFromString($column);
                             }
+                        } elseif ($xml->name == 'c' && $xml->nodeType == \XMLReader::ELEMENT) {
+                            $column = preg_replace('{[^[:alpha:]]}S', '', $xml->getAttribute('r'));
                         } elseif (!$nonEmpty && $xml->name == 'v' && $xml->nodeType == \XMLReader::ELEMENT) {
                             $nonEmpty = true;
                         }
@@ -265,13 +265,14 @@ class Excel2007 {
             $name = $this->sharedStringsXML->name;
             $nodeType = $this->sharedStringsXML->nodeType;
 
-            if ($nodeType == \XMLReader::ELEMENT) {
-                if ($name == 'si') {
+            if ($name == 'si') {
+                if ($nodeType == \XMLReader::ELEMENT) {
                     $this->sharedStringsPosition++;
-                } elseif ($position == $this->sharedStringsPosition && $name == 't') {
-                    $value = $this->sharedStringsXML->readString();
+                } elseif ($position == $this->sharedStringsPosition && $nodeType == \XMLReader::END_ELEMENT) {
                     break;
                 }
+            } elseif ($name == 't' && $position == $this->sharedStringsPosition && $nodeType == \XMLReader::ELEMENT) {
+                $value .= trim($this->sharedStringsXML->readString());
             }
         }
 
