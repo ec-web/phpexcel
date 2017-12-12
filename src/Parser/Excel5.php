@@ -630,9 +630,12 @@ class Excel5 {
             $name = $string['value'];
         }
 
-        $this->sheets[] = [
-            'name' => $name, 'offset' => $offset, 'sheetState' => $sheetState, 'sheetType' => $sheetType
-        ];
+        // ignore hidden sheet
+        if ($sheetState == self::SHEETSTATE_VISIBLE) {
+            $this->sheets[] = [
+                'name' => $name, 'offset' => $offset, 'sheetState' => $sheetState, 'sheetType' => $sheetType
+            ];
+        }
     }
 
     /**
