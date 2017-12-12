@@ -192,19 +192,20 @@ class Excel2007 {
             if (isset($workbookXML->sheets) && $workbookXML->sheets) {
                 $xml = new \XMLReader();
 
+                $index = 0;
                 foreach ($workbookXML->sheets->sheet as $sheet) {
                     $info = [
                         'name' => (string)$sheet['name'], 'lastColumnLetter' => '', 'lastColumnIndex' => 0,
                         'totalRows' => 0, 'totalColumns' => 0
                     ];
 
-                    $this->zip->extractTo($this->tmpDir, $file = "xl/worksheets/sheet{$sheet['sheetId']}.xml");
+                    $this->zip->extractTo($this->tmpDir, $file = 'xl/worksheets/sheet' . (++$index) . '.xml');
                     $xml->open($this->tmpDir . '/' . $file, null, self::getLibXmlLoaderOptions());
 
                     $xml->setParserProperty(\XMLReader::DEFAULTATTRS, true);
 
                     $nonEmpty = false;
-                    $column = '';
+                    $columnLetter = '';
                     while ($xml->read()) {
                         if ($xml->name == 'row') {
                             if (!$this->ignoreEmpty && $xml->nodeType == \XMLReader::ELEMENT) {
@@ -215,18 +216,20 @@ class Excel2007 {
                                     $nonEmpty = false;
                                 }
 
-                                $info['totalColumns'] = Format::columnIndexFromString($column);
+                                if ($columnLetter > $info['lastColumnLetter']) {
+                                    $info['lastColumnLetter'] = $columnLetter;
+                                }
                             }
                         } elseif ($xml->name == 'c' && $xml->nodeType == \XMLReader::ELEMENT) {
-                            $column = preg_replace('{[^[:alpha:]]}S', '', $xml->getAttribute('r'));
+                            $columnLetter = preg_replace('{[^[:alpha:]]}S', '', $xml->getAttribute('r'));
                         } elseif (!$nonEmpty && $xml->name == 'v' && $xml->nodeType == \XMLReader::ELEMENT) {
                             $nonEmpty = true;
                         }
                     }
 
-                    if ($info['totalColumns']) {
+                    if ($info['lastColumnLetter']) {
+                        $info['totalColumns'] = Format::columnIndexFromString($info['lastColumnLetter']);
                         $info['lastColumnIndex'] = $info['totalColumns'] - 1;
-                        $info['lastColumnLetter'] = Format::stringFromColumnIndex($info['lastColumnIndex']);
                     }
 
                     $this->sheets[] = $info;
