@@ -16,12 +16,13 @@ class Excel {
      * @param string $file
      * @param callback|null $callback
      * @param string|null $encoding
+     * @param string $ext
      *
      * @throws ReaderException
      * @return \EC\PHPExcel\Reader\BaseReader
      */
-    public static function load($file, $callback = null, $encoding = null) {
-        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+    public static function load($file, $callback = null, $encoding = null, $ext = '') {
+        $ext = $ext ?: strtolower(pathinfo($file, PATHINFO_EXTENSION));
 
         $format = self::getFormatByExtension($ext);
 
