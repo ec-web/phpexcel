@@ -89,16 +89,15 @@ class Xls extends BaseReader {
      * @return \Generator
      */
     protected function makeGenerator() {
-        $line = 0;
         list($rowLimit, $columnLimit) = $this->count(true);
 
-        while ($line < $rowLimit) {
-            $row = $this->parser->getRow($line++, $columnLimit);
-
-            if ($this->parser->isIgnoreEmptyRow() && (empty($row) || trim(implode('', $row)) === '')) {
+        $line = $finish = 0;
+        while ($finish < $rowLimit && ($row = $this->parser->getRow($line++, $columnLimit)) !== false) {
+            if ($this->parser->isIgnoreEmptyRow() && trim(implode('', $row)) === '') {
                 continue;
             }
 
+            $finish++;
             yield $row;
         }
     }

@@ -97,7 +97,7 @@ class Csv extends BaseReader {
 
         fseek($this->fileHandle, $this->start);
 
-        $rowLimit = 0;
+        $finish = 0;
         while (($row = fgetcsv($this->fileHandle, 0, $this->delimiter, $this->enclosure)) !== false) {
             if ($this->ignoreEmpty && (empty($row) || trim(implode('', $row)) === '')) {
                 continue;
@@ -108,7 +108,7 @@ class Csv extends BaseReader {
                 continue;
             }
 
-            if ($this->rowLimit > 0 && ++$rowLimit > $this->rowLimit) {
+            if ($this->rowLimit > 0 && ++$finish > $this->rowLimit) {
                 break;
             }
 
@@ -158,13 +158,13 @@ class Csv extends BaseReader {
         if ($this->inputEncoding === null) {
             $this->inputEncoding = 'UTF-8';
 
-            if (($bom = substr($line, 0, 5)) == "\xFF\xFE\x00\x00" || $bom == "\x00\x00\xFE\xFF") {
+            if (($bom = substr($line, 0, 4)) == "\xFF\xFE\x00\x00" || $bom == "\x00\x00\xFE\xFF") {
                 $this->start = 4;
                 $this->inputEncoding = 'UTF-32';
-            } elseif (($bom = substr($line, 0, 3)) == "\xFF\xFE" || $bom == "\xFE\xFF") {
+            } elseif (($bom = substr($line, 0, 2)) == "\xFF\xFE" || $bom == "\xFE\xFF") {
                 $this->start = 2;
                 $this->inputEncoding = 'UTF-16';
-            } elseif (($bom = substr($line, 0, 4)) == "\xEF\xBB\xBF") {
+            } elseif (($bom = substr($line, 0, 3)) == "\xEF\xBB\xBF") {
                 $this->start = 3;
             }
 

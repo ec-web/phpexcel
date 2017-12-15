@@ -438,22 +438,31 @@ class Excel5 {
      * @param int $rowIndex
      * @param int $columnLimit
      *
-     * @return array
+     * @return array|bool
      */
     public function getRow($rowIndex, $columnLimit = 0) {
         $this->parseWorksheetInfo();
-
-        $this->rowIndex = $rowIndex;
-        $this->columnLimit = $columnLimit;
-        $this->eor = false;
-        $this->row = $columnLimit ? array_fill(0, $columnLimit, '') : [];
 
         // Rewind or change sheet
         if ($rowIndex === 0 || $this->pos < $this->sheets[$this->sheetIndex]['offset']) {
             $this->pos = $this->sheets[$this->sheetIndex]['offset'];
         }
 
-        while ($this->pos <= $this->dataSize - 4) {
+        $endPos = $this->dataSize - 4;
+        if (isset($this->sheets[$this->sheetIndex + 1]['offset'])) {
+            $endPos = $this->sheets[$this->sheetIndex + 1]['offset'] - 4;
+        }
+
+        if ($this->pos >= $endPos) {
+            return false;
+        }
+
+        $this->rowIndex = $rowIndex;
+        $this->columnLimit = $columnLimit;
+        $this->eor = false;
+        $this->row = $columnLimit ? array_fill(0, $columnLimit, '') : [];
+
+        while ($this->pos <= $endPos) {
             // Remember last position
             $lastPos = $this->pos;
             $code = Format::getInt2d($this->data, $this->pos);

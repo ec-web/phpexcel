@@ -222,7 +222,9 @@ class Excel2007 {
                             }
                         } elseif ($xml->name == 'c' && $xml->nodeType == \XMLReader::ELEMENT) {
                             $columnLetter = preg_replace('{[^[:alpha:]]}S', '', $xml->getAttribute('r'));
-                        } elseif (!$nonEmpty && $xml->name == 'v' && $xml->nodeType == \XMLReader::ELEMENT) {
+                        } elseif ($this->ignoreEmpty && !$nonEmpty && $xml->name == 'v'
+                            && $xml->nodeType == \XMLReader::ELEMENT && trim($xml->readString()) !== '') {
+
                             $nonEmpty = true;
                         }
                     }
@@ -337,7 +339,7 @@ class Excel2007 {
      * @param int $rowIndex
      * @param int $columnLimit
      *
-     * @return array
+     * @return array|bool
      */
     public function getRow($rowIndex, $columnLimit = 0) {
         $this->parseStyles();
@@ -347,7 +349,7 @@ class Excel2007 {
         $index = $styleId = 0;
         $row = $columnLimit ? array_fill(0, $columnLimit, '') : [];
 
-        while ($this->worksheetXML->read()) {
+        while ($canRead = $this->worksheetXML->read()) {
             $name = $this->worksheetXML->name;
             $type = $this->worksheetXML->nodeType;
 
@@ -410,6 +412,10 @@ class Excel2007 {
                     $row[$index] = $value;
                     break;
             }
+        }
+
+        if ($canRead === false) {
+            return false;
         }
 
         return $row;
