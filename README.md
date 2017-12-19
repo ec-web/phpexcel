@@ -1,7 +1,7 @@
 # phpexcel
 A lightweight PHP library for reading spreadsheet files
   - Based on Generator、SeekableIterator and Countable
-  - Support for reading by line
+  - Support for reading by line, read data only
 
 ### Requirements
 
