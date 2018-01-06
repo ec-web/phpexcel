@@ -438,6 +438,11 @@ class Excel2007 {
         }
 
         $this->removeDir($this->tmpDir);
+
+        $this->zip = null;
+        $this->worksheetXML = null;
+        $this->sharedStringsXML = null;
+        $this->tmpDir = null;
     }
 
     /**
