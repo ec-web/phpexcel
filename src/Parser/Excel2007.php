@@ -772,9 +772,7 @@ class Excel2007 {
         }
 
         if ($xl === false) {
-            throw new ParserException(
-                "The file [$file] is not recognised as a zip archive: " . $this->zip->getStatusString()
-            );
+            throw new ParserException("The file [$file] is not recognised as a zip archive");
         }
     }
 
