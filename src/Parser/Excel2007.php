@@ -111,6 +111,7 @@ class Excel2007 {
     /**
      * Use ZipArchive reader to extract the relevant data streams from the ZipArchive file
      *
+     * @throws ParserException|ReaderException
      * @param string $file
      */
     public function loadZip($file) {
@@ -180,6 +181,7 @@ class Excel2007 {
     /**
      * Return worksheet info (Name, Last Column Letter, Last Column Index, Total Rows, Total Columns)
      *
+     * @throws ReaderException
      * @return array
      */
     public function parseWorksheetInfo() {
@@ -286,6 +288,8 @@ class Excel2007 {
 
     /**
      * Parse styles info
+     *
+     * @throws ReaderException
      */
     protected function parseStyles() {
         if ($this->styleXfs === null) {
@@ -339,6 +343,7 @@ class Excel2007 {
      * @param int $rowIndex
      * @param int $columnLimit
      *
+     * @throws ReaderException
      * @return array|bool
      */
     public function getRow($rowIndex, $columnLimit = 0) {
@@ -425,7 +430,7 @@ class Excel2007 {
      * Close ZipArchive、XMLReader and remove temp dir
      */
     public function __destruct() {
-        if ($this->zip) {
+        if ($this->zip && $this->tmpDir) {
             $this->zip->close();
         }
 
@@ -471,6 +476,7 @@ class Excel2007 {
      * @param string $value
      * @param int $index Format index
      *
+     * @throws \Exception
      * @return string Formatted cell value
      */
     private function formatValue($value, $index) {

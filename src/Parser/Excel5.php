@@ -294,6 +294,7 @@ class Excel5 {
     /**
      * Return worksheet info (Name, Last Column Letter, Last Column Index, Total Rows, Total Columns)
      *
+     * @throws ParserException
      * @return array
      */
     public function parseWorksheetInfo() {
@@ -438,6 +439,7 @@ class Excel5 {
      * @param int $rowIndex
      * @param int $columnLimit
      *
+     * @throws ParserException
      * @return array|bool
      */
     public function getRow($rowIndex, $columnLimit = 0) {
@@ -551,6 +553,8 @@ class Excel5 {
 
     /**
      * Read BOF
+     *
+     * @throws ParserException
      */
     private function readBof() {
         $length = Format::getInt2d($this->data, $this->pos + 2);
@@ -666,6 +670,8 @@ class Excel5 {
      * the file. All record contents following this record will be encrypted.
      * The decryption functions and objects used from here on in are based on the source of Spreadsheet-ParseExcel:
      * http://search.cpan.org/~jmcnamara/Spreadsheet-ParseExcel/
+     *
+     * @throws ParserException
      */
     private function readFilepass() {
         $length = Format::getInt2d($this->data, $this->pos + 2);
@@ -859,6 +865,8 @@ class Excel5 {
      * CODEPAGE
      *
      * This record stores the text encoding used to write byte strings, stored as MS Windows code page identifier.
+     *
+     * @throws ParserException
      */
     private function readCodepage() {
         $length = Format::getInt2d($this->data, $this->pos + 2);

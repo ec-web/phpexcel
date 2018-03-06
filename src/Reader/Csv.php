@@ -57,6 +57,7 @@ class Csv extends BaseReader {
      *
      * @param string $file
      *
+     * @throws ReaderException
      * @return $this
      */
     public function load($file) {

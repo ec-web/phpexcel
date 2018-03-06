@@ -62,6 +62,7 @@ class OLERead {
     /**
      * Read the file
      *
+     * @throws ParserException|ReaderException
      * @param string $file
      */
     public function read($file) {
