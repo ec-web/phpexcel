@@ -307,7 +307,7 @@ class Excel5 {
 
             // Parse Workbook Global Substream
             while ($this->pos < $this->dataSize) {
-                $code = Format::getInt2d($this->data, $this->pos);
+                $code = Format::getUInt2d($this->data, $this->pos);
 
                 switch ($code) {
                     case self::XLS_TYPE_BOF:
@@ -369,7 +369,7 @@ class Excel5 {
                 $lastRowIndex = 0;
                 $this->pos = $sheet['offset'];
                 while ($this->pos <= $this->dataSize - 4) {
-                    $code = Format::getInt2d($this->data, $this->pos);
+                    $code = Format::getUInt2d($this->data, $this->pos);
 
                     switch ($code) {
                         case self::XLS_TYPE_RK:
@@ -378,14 +378,14 @@ class Excel5 {
                         case self::XLS_TYPE_FORMULA:
                         case self::XLS_TYPE_BOOLERR:
                         case self::XLS_TYPE_LABEL:
-                            $length = Format::getInt2d($this->data, $this->pos + 2);
+                            $length = Format::getUInt2d($this->data, $this->pos + 2);
                             $recordData = substr($this->data, $this->pos + 4, $length);
 
                             // move stream pointer to next record
                             $this->pos += 4 + $length;
 
-                            $rowIndex = Format::getInt2d($recordData, 0) + 1;
-                            $columnIndex = Format::getInt2d($recordData, 2);
+                            $rowIndex = Format::getUInt2d($recordData, 0) + 1;
+                            $columnIndex = Format::getUInt2d($recordData, 2);
 
                             if ($this->ignoreEmpty) {
                                 if ($lastRowIndex < $rowIndex) {
@@ -467,7 +467,7 @@ class Excel5 {
         while ($this->pos <= $endPos) {
             // Remember last position
             $lastPos = $this->pos;
-            $code = Format::getInt2d($this->data, $this->pos);
+            $code = Format::getUInt2d($this->data, $this->pos);
 
             switch ($code) {
                 case self::XLS_TYPE_BOF:
@@ -557,18 +557,18 @@ class Excel5 {
      * @throws ParserException
      */
     private function readBof() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 2; size: 2; type of the following data
-        $substreamType = Format::getInt2d($recordData, 2);
+        $substreamType = Format::getUInt2d($recordData, 2);
 
         switch ($substreamType) {
             case self::XLS_WORKBOOKGLOBALS:
-                $version = Format::getInt2d($recordData, 0);
+                $version = Format::getUInt2d($recordData, 0);
                 if (($version != self::XLS_BIFF8) && ($version != self::XLS_BIFF7)) {
                     throw new ParserException('Cannot read this Excel file. Version is too old.', 1);
                 }
@@ -585,7 +585,7 @@ class Excel5 {
                 // substream, e.g. chart
                 // just skip the entire substream
                 do {
-                    $code = Format::getInt2d($this->data, $this->pos);
+                    $code = Format::getUInt2d($this->data, $this->pos);
                     $this->readDefault();
                 } while ($code != self::XLS_TYPE_EOF && $this->pos < $this->dataSize);
 
@@ -601,7 +601,7 @@ class Excel5 {
      * record of the respective Sheet Substream within the Workbook Stream.
      */
     private function readSheet() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // offset: 0; size: 4; absolute stream position of the BOF record of the sheet
@@ -656,7 +656,7 @@ class Excel5 {
      * Does nothing except for moving stream pointer forward to next record.
      */
     private function readDefault() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         //$recordData = $this->readRecordData($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
@@ -674,7 +674,7 @@ class Excel5 {
      * @throws ParserException
      */
     private function readFilepass() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
 
         if ($length != 54) {
             throw new ParserException('Unexpected file pass record length', 2);
@@ -694,7 +694,7 @@ class Excel5 {
         $this->encryption = self::MS_BIFF_CRYPTO_RC4;
 
         // Decryption required from the record after next onwards
-        $this->encryptionStartPos = $this->pos + Format::getInt2d($this->data, $this->pos + 2);
+        $this->encryptionStartPos = $this->pos + Format::getUInt2d($this->data, $this->pos + 2);
     }
 
     /**
@@ -869,14 +869,14 @@ class Excel5 {
      * @throws ParserException
      */
     private function readCodepage() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 0; size: 2; code page identifier
-        $codePage = Format::getInt2d($recordData, 0);
+        $codePage = Format::getUInt2d($recordData, 0);
         $this->codePage = self::NumberToName($codePage);
     }
 
@@ -887,7 +887,7 @@ class Excel5 {
      * it is stored in the Workbook Globals Substream.
      */
     private function readDateMode() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
@@ -908,13 +908,13 @@ class Excel5 {
      * on the FORMAT record contains the index itself that will be used by other records.
      */
     private function readFormat() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
-        $indexCode = Format::getInt2d($recordData, 0);
+        $indexCode = Format::getUInt2d($recordData, 0);
         if ($this->version == self::XLS_BIFF8) {
             $string = self::readUnicodeStringLong(substr($recordData, 2));
         } else {
@@ -936,14 +936,14 @@ class Excel5 {
      * We read all cell XF records.
      */
     private function readXf() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 2; size: 2; Index to FORMAT record
-        $numberFormatIndex = Format::getInt2d($recordData, 2);
+        $numberFormatIndex = Format::getUInt2d($recordData, 2);
         if (isset($this->formats[$numberFormatIndex])) {
             // then we have user-defined format code
             $numberFormat = $this->formats[$numberFormatIndex];
@@ -984,11 +984,11 @@ class Excel5 {
         // loop through the Unicode strings (16-bit length)
         for ($i = 0; $i < $nm; ++$i) {
             // number of characters in the Unicode string
-            $numChars = Format::getInt2d($recordData, $pos);
+            $numChars = Format::getUInt2d($recordData, $pos);
             $pos += 2;
 
             // option flags
-            $optionFlags = ord($recordData{$pos});
+            $optionFlags = ord($recordData[$pos]);
             ++$pos;
 
             // bit: 0; mask: 0x01; 0 = compressed; 1 = uncompressed
@@ -1002,7 +1002,7 @@ class Excel5 {
             $hasRichText = (($optionFlags & 0x08) != 0);
             if ($hasRichText) {
                 // number of Rich-Text formatting runs
-                $formattingRuns = Format::getInt2d($recordData, $pos);
+                $formattingRuns = Format::getUInt2d($recordData, $pos);
                 $pos += 2;
             }
 
@@ -1042,7 +1042,7 @@ class Excel5 {
                 $pos = $limitPos;
 
                 // keep reading the characters
-                while ($charsLeft > 0) {
+                while ($charsLeft > 0 && isset($recordData[$pos])) {
                     // look up next limit position, in case the string span more than one continue record
                     foreach ($spliceOffsets as $spliceOffset) {
                         if ($pos < $spliceOffset) {
@@ -1053,7 +1053,7 @@ class Excel5 {
 
                     // repeated option flags
                     // OpenOffice.org documentation 5.21
-                    $option = ord($recordData{$pos});
+                    $option = ord($recordData[$pos]);
                     ++$pos;
 
                     if ($isCompressed && ($option == 0)) {
@@ -1075,7 +1075,7 @@ class Excel5 {
                         // this fragment compressed
                         $len = min($charsLeft, $limitPos - $pos);
                         for ($j = 0; $j < $len; ++$j) {
-                            $retStr .= $recordData{$pos + $j} . chr(0);
+                            $retStr .= $recordData[$pos + $j] . chr(0);
                         }
 
                         $charsLeft -= $len;
@@ -1084,7 +1084,8 @@ class Excel5 {
                         // 1st fragment compressed
                         // this fragment uncompressed
                         $newStr = '';
-                        for ($j = 0; $j < strlen($retStr); ++$j) {
+                        $jMax = strlen($retStr);
+                        for ($j = 0; $j < $jMax; ++$j) {
                             $newStr .= $retStr[$j] . chr(0);
                         }
 
@@ -1108,10 +1109,10 @@ class Excel5 {
                 // list of formatting runs
                 for ($j = 0; $j < $formattingRuns; ++$j) {
                     // first formatted character; zero-based
-                    $charPos = Format::getInt2d($recordData, $pos + $j * 4);
+                    $charPos = Format::getUInt2d($recordData, $pos + $j * 4);
 
                     // index to font record
-                    $fontIndex = Format::getInt2d($recordData, $pos + 2 + $j * 4);
+                    $fontIndex = Format::getUInt2d($recordData, $pos + 2 + $j * 4);
                     $fmtRuns[] = ['charPos' => $charPos, 'fontIndex' => $fontIndex];
                 }
 
@@ -1137,20 +1138,20 @@ class Excel5 {
      * the record INTEGER written in BIFF2.
      */
     private function readRk() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 0; size: 2; index to row
-        $row = Format::getInt2d($recordData, 0);
+        $row = Format::getUInt2d($recordData, 0);
 
         // offset: 2; size: 2; index to column
-        $column = Format::getInt2d($recordData, 2);
+        $column = Format::getUInt2d($recordData, 2);
 
         // offset: 4; size: 2; index to XF record
-        $xfIndex = Format::getInt2d($recordData, 4);
+        $xfIndex = Format::getUInt2d($recordData, 4);
 
         // offset: 6; size: 4; RK value
         $rkNum = Format::getInt4d($recordData, 6);
@@ -1167,13 +1168,13 @@ class Excel5 {
      * BIFF2-BIFF5.
      */
     private function readLabelSst() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         $this->pos += 4 + $length;
-        $xfIndex = Format::getInt2d($recordData, 4);
-        $row = Format::getInt2d($recordData, 0);
-        $column = Format::getInt2d($recordData, 2);
+        $xfIndex = Format::getUInt2d($recordData, 4);
+        $row = Format::getUInt2d($recordData, 0);
+        $column = Format::getUInt2d($recordData, 2);
 
         // offset: 6; size: 4; index to SST record
         $index = Format::getInt4d($recordData, 6);
@@ -1186,27 +1187,27 @@ class Excel5 {
      * This record represents a cell range containing RK value cells. All cells are located in the same row.
      */
     private function readMulRk() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 0; size: 2; index to row
-        $row = Format::getInt2d($recordData, 0);
+        $row = Format::getUInt2d($recordData, 0);
 
         // offset: 2; size: 2; index to first column
-        $colFirst = Format::getInt2d($recordData, 2);
+        $colFirst = Format::getUInt2d($recordData, 2);
 
         // offset: var; size: 2; index to last column
-        $colLast = Format::getInt2d($recordData, $length - 2);
+        $colLast = Format::getUInt2d($recordData, $length - 2);
         $columns = $colLast - $colFirst + 1;
 
         // offset within record data
         $offset = 4;
         for ($i = 0; $i < $columns; ++$i) {
             // offset: var; size: 2; index to XF record
-            $xfIndex = Format::getInt2d($recordData, $offset);
+            $xfIndex = Format::getUInt2d($recordData, $offset);
 
             // offset: var; size: 4; RK value
             $numValue = self::getIEEE754(Format::getInt4d($recordData, $offset + 2));
@@ -1223,20 +1224,20 @@ class Excel5 {
      * This record represents a cell that contains a floating-point value.
      */
     private function readNumber() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 0; size: 2; index to row
-        $row = Format::getInt2d($recordData, 0);
+        $row = Format::getUInt2d($recordData, 0);
 
         // offset: 2; size 2; index to column
-        $column = Format::getInt2d($recordData, 2);
+        $column = Format::getUInt2d($recordData, 2);
 
         // offset 4; size: 2; index to XF record
-        $xfIndex = Format::getInt2d($recordData, 4);
+        $xfIndex = Format::getUInt2d($recordData, 4);
         $numValue = self::extractNumber(substr($recordData, 6, 8));
 
         $this->addCell($row, $column, $numValue, $xfIndex);
@@ -1247,20 +1248,20 @@ class Excel5 {
      * This record contains the token array and the result of a formula cell.
      */
     private function readFormula() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 0; size: 2; row index
-        $row = Format::getInt2d($recordData, 0);
+        $row = Format::getUInt2d($recordData, 0);
 
         // offset: 2; size: 2; col index
-        $column = Format::getInt2d($recordData, 2);
+        $column = Format::getUInt2d($recordData, 2);
 
         // offset 4; size: 2; index to XF record
-        $xfIndex = Format::getInt2d($recordData, 4);
+        $xfIndex = Format::getUInt2d($recordData, 4);
 
         // offset: 6; size: 8; result of the formula
         if ((ord($recordData{6}) == 0) && (ord($recordData{12}) == 255) && (ord($recordData{13}) == 255)) {
@@ -1291,7 +1292,7 @@ class Excel5 {
      * @return string The string contents as UTF-8
      */
     private function readString() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
@@ -1313,20 +1314,20 @@ class Excel5 {
      * This record represents a Boolean value or error value cell.
      */
     private function readBoolErr() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 0; size: 2; row index
-        $row = Format::getInt2d($recordData, 0);
+        $row = Format::getUInt2d($recordData, 0);
 
         // offset: 2; size: 2; column index
-        $column = Format::getInt2d($recordData, 2);
+        $column = Format::getUInt2d($recordData, 2);
 
         // offset: 4; size: 2; index to XF record
-        $xfIndex = Format::getInt2d($recordData, 4);
+        $xfIndex = Format::getUInt2d($recordData, 4);
 
         // offset: 6; size: 1; the boolean value or error value
         $boolError = ord($recordData{6});
@@ -1354,20 +1355,20 @@ class Excel5 {
      * Read BLANK record
      */
     private function readBlank() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 0; size: 2; row index
-        $row = Format::getInt2d($recordData, 0);
+        $row = Format::getUInt2d($recordData, 0);
 
         // offset: 2; size: 2; col index
-        $column = Format::getInt2d($recordData, 2);
+        $column = Format::getUInt2d($recordData, 2);
 
         // offset: 4; size: 2; XF index
-        $xfIndex = Format::getInt2d($recordData, 4);
+        $xfIndex = Format::getUInt2d($recordData, 4);
 
         $this->addCell($row, $column, '', $xfIndex);
     }
@@ -1379,20 +1380,20 @@ class Excel5 {
      * Excel still uses this record, if it copies unformatted text cells to the clipboard.
      */
     private function readLabel() {
-        $length = Format::getInt2d($this->data, $this->pos + 2);
+        $length = Format::getUInt2d($this->data, $this->pos + 2);
         $recordData = substr($this->data, $this->pos + 4, $length);
 
         // move stream pointer to next record
         $this->pos += 4 + $length;
 
         // offset: 0; size: 2; index to row
-        $row = Format::getInt2d($recordData, 0);
+        $row = Format::getUInt2d($recordData, 0);
 
         // offset: 2; size: 2; index to column
-        $column = Format::getInt2d($recordData, 2);
+        $column = Format::getUInt2d($recordData, 2);
 
         // offset: 4; size: 2; XF index
-        $xfIndex = Format::getInt2d($recordData, 4);
+        $xfIndex = Format::getUInt2d($recordData, 4);
 
         // add cell value
         if ($this->version == self::XLS_BIFF8) {
@@ -1608,12 +1609,12 @@ class Excel5 {
             //$identifier = Cell::getInt2d($this->data, $this->pos);
 
             // offset: 2; size: 2; length
-            $length = Format::getInt2d($this->data, $this->pos + 2);
+            $length = Format::getUInt2d($this->data, $this->pos + 2);
             $data .= substr($this->data, $this->pos + 4, $length);
             $spliceOffsets[$i] = $spliceOffsets[$i - 1] + $length;
 
             $this->pos += 4 + $length;
-            $nextIdentifier = Format::getInt2d($this->data, $this->pos);
+            $nextIdentifier = Format::getUInt2d($this->data, $this->pos);
         } while ($nextIdentifier == self::XLS_TYPE_CONTINUE);
 
         return ['recordData' => $data, 'spliceOffsets' => $spliceOffsets];
@@ -1931,7 +1932,7 @@ class Excel5 {
      */
     private function readByteStringLong($subData) {
         // offset: 0; size: 2; length of the string (character count)
-        $ln = Format::getInt2d($subData, 0);
+        $ln = Format::getUInt2d($subData, 0);
 
         // offset: 2: size: var; character array (8-bit characters)
         $value = $this->decodeCodepage(substr($subData, 2));
@@ -2282,7 +2283,7 @@ class Excel5 {
      */
     private static function readUnicodeStringLong($subData) {
         // offset: 0: size: 2; length of the string (character count)
-        $characterCount = Format::getInt2d($subData, 0);
+        $characterCount = Format::getUInt2d($subData, 0);
         $string = self::readUnicodeString(substr($subData, 2), $characterCount);
 
         // add 2 for the string length

@@ -249,7 +249,7 @@ class Format {
      * @param int $pos
      * @return int
      */
-    public static function getInt2d($data, $pos) {
+    public static function getUInt2d($data, $pos) {
         return ord($data[$pos]) | (ord($data[$pos + 1]) << 8);
     }
 
