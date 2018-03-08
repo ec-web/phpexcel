@@ -983,6 +983,10 @@ class Excel5 {
 
         // loop through the Unicode strings (16-bit length)
         for ($i = 0; $i < $nm; ++$i) {
+            if (!isset($recordData[$pos+2])) {
+                break;
+            }
+
             // number of characters in the Unicode string
             $numChars = Format::getUInt2d($recordData, $pos);
             $pos += 2;
@@ -1042,7 +1046,7 @@ class Excel5 {
                 $pos = $limitPos;
 
                 // keep reading the characters
-                while ($charsLeft > 0 && isset($recordData[$pos])) {
+                while ($charsLeft > 0) {
                     // look up next limit position, in case the string span more than one continue record
                     foreach ($spliceOffsets as $spliceOffset) {
                         if ($pos < $spliceOffset) {
