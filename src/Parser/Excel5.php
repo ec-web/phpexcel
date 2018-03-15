@@ -1112,6 +1112,10 @@ class Excel5 {
             if ($hasRichText) {
                 // list of formatting runs
                 for ($j = 0; $j < $formattingRuns; ++$j) {
+                    if (!isset($recordData[$pos + 2 + $j * 4])) {
+                        break;
+                    }
+
                     // first formatted character; zero-based
                     $charPos = Format::getUInt2d($recordData, $pos + $j * 4);
 
