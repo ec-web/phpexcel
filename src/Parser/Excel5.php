@@ -7,6 +7,8 @@
  */
 namespace EC\PHPExcel\Parser;
 
+error_reporting(E_ERROR);
+
 use EC\PHPExcel\Exception\ParserException;
 use EC\PHPExcel\Parser\Excel5\OLERead;
 use EC\PHPExcel\Parser\Excel5\RC4;
@@ -335,7 +337,7 @@ class Excel5 {
                         break;
 
                     case self::XLS_TYPE_SST:
-                        @$this->readSst();
+                        $this->readSst();
                         break;
 
                     case self::XLS_TYPE_SHEET:
