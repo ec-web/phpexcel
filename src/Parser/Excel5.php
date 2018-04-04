@@ -335,7 +335,7 @@ class Excel5 {
                         break;
 
                     case self::XLS_TYPE_SST:
-                        $this->readSst();
+                        @$this->readSst();
                         break;
 
                     case self::XLS_TYPE_SHEET:
@@ -983,13 +983,13 @@ class Excel5 {
 
         // loop through the Unicode strings (16-bit length)
         for ($i = 0; $i < $nm; ++$i) {
-            if (!isset($recordData[$pos+2])) {
-                break;
-            }
-
             // number of characters in the Unicode string
             $numChars = Format::getUInt2d($recordData, $pos);
             $pos += 2;
+
+            if (!isset($recordData[$pos])) {
+                break;
+            }
 
             // option flags
             $optionFlags = ord($recordData[$pos]);
@@ -1055,6 +1055,10 @@ class Excel5 {
                         }
                     }
 
+                    if (!isset($recordData[$pos])) {
+                        break;
+                    }
+
                     // repeated option flags
                     // OpenOffice.org documentation 5.21
                     $option = ord($recordData[$pos]);
@@ -1079,6 +1083,10 @@ class Excel5 {
                         // this fragment compressed
                         $len = min($charsLeft, $limitPos - $pos);
                         for ($j = 0; $j < $len; ++$j) {
+                            if (!isset($recordData[$pos + $j])) {
+                                break;
+                            }
+
                             $retStr .= $recordData[$pos + $j] . chr(0);
                         }
 
@@ -1108,21 +1116,17 @@ class Excel5 {
             $retStr = self::encodeUTF16($retStr, $isCompressed);
 
             // read additional Rich-Text information, if any
-            $fmtRuns = [];
+            // $fmtRuns = [];
             if ($hasRichText) {
                 // list of formatting runs
-                for ($j = 0; $j < $formattingRuns; ++$j) {
-                    if (!isset($recordData[$pos + 2 + $j * 4])) {
-                        break;
-                    }
-
+                /*for ($j = 0; $j < $formattingRuns; ++$j) {
                     // first formatted character; zero-based
                     $charPos = Format::getUInt2d($recordData, $pos + $j * 4);
 
                     // index to font record
                     $fontIndex = Format::getUInt2d($recordData, $pos + 2 + $j * 4);
                     $fmtRuns[] = ['charPos' => $charPos, 'fontIndex' => $fontIndex];
-                }
+                }*/
 
                 $pos += 4 * $formattingRuns;
             }
@@ -1134,7 +1138,7 @@ class Excel5 {
             }
 
             // store the shared sting
-            $this->sst[] = ['value' => $retStr, 'fmtRuns' => $fmtRuns];
+            $this->sst[] = ['value' => $retStr];
         }
     }
 
