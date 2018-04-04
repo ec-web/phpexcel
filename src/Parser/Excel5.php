@@ -7,8 +7,6 @@
  */
 namespace EC\PHPExcel\Parser;
 
-error_reporting(E_ERROR);
-
 use EC\PHPExcel\Exception\ParserException;
 use EC\PHPExcel\Parser\Excel5\OLERead;
 use EC\PHPExcel\Parser\Excel5\RC4;
@@ -985,13 +983,13 @@ class Excel5 {
 
         // loop through the Unicode strings (16-bit length)
         for ($i = 0; $i < $nm; ++$i) {
+            if (!isset($recordData[$pos + 2])) {
+                break;
+            }
+
             // number of characters in the Unicode string
             $numChars = Format::getUInt2d($recordData, $pos);
             $pos += 2;
-
-            if (!isset($recordData[$pos])) {
-                break;
-            }
 
             // option flags
             $optionFlags = ord($recordData[$pos]);
@@ -1006,14 +1004,14 @@ class Excel5 {
             // bit: 3; mask: 0x03; 0 = ordinary; 1 = Rich-Text
             $formattingRuns = 0;
             $hasRichText = (($optionFlags & 0x08) != 0);
-            if ($hasRichText) {
+            if ($hasRichText && isset($recordData[$pos])) {
                 // number of Rich-Text formatting runs
                 $formattingRuns = Format::getUInt2d($recordData, $pos);
                 $pos += 2;
             }
 
             $extendedRunLength = 0;
-            if ($hasAsian) {
+            if ($hasAsian && isset($recordData[$pos])) {
                 // size of Asian phonetic setting
                 $extendedRunLength = Format::getInt4d($recordData, $pos);
                 $pos += 4;

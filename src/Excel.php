@@ -22,6 +22,10 @@ class Excel {
      * @return \EC\PHPExcel\Reader\BaseReader
      */
     public static function load($file, $callback = null, $encoding = null, $ext = '') {
+        set_error_handler(function($errno, $errstr, $errfile, $errline) {
+            // no-op
+        }, E_ALL ^ E_ERROR);
+
         $ext = $ext ?: strtolower(pathinfo($file, PATHINFO_EXTENSION));
 
         $format = self::getFormatByExtension($ext);
